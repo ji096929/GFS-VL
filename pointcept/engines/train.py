@@ -623,6 +623,18 @@ class GFS_VL_Trainer(Trainer):
             torch.cuda.empty_cache()
         self.comm_info["model_output_dict"] = output_dict
 
+    def _compute_text_margin(self, proto, class_id):
+        """margin = cos(proto, text_self) - max_{b in base} cos(proto, text_b).
+
+        text_* = VLM classification head weights (already in memory).
+        Low margin = mean feature sits close to a base class ("confidently wrong").
+        """
+        text = self.VLM_3D.task_head.cls_head.weight
+        proto_n = proto / proto.norm().clamp(min=1e-8)
+        cos_self = torch.dot(proto_n, text[class_id])
+        cos_base = (text[: self.cfg.data.num_bases] @ proto_n).max()
+        return float(cos_self - cos_base)
+
     def pseudo_label_selection(
         self, all_pred_cloud, all_feat_cloud, offset, ps_thresh=0.6
     ):
@@ -669,6 +681,17 @@ class GFS_VL_Trainer(Trainer):
                             f"=> Filtering class {class_id}, similarity {similarity}"
                         )
                         pred_cloud[pred_cloud == class_id] = -1
+                    elif self.cfg.get("use_margin_filter", False):
+                        # Margin filter: drop if mean feature sits too close to
+                        # a base class text embedding (confidently-wrong signal).
+                        margin = self._compute_text_margin(proto, class_id)
+                        margin_thresh = self.cfg.get("margin_thresh", 0.023)
+                        if margin < margin_thresh:
+                            self.logger.info(
+                                f"=> Margin-filtering class {class_id}, "
+                                f"margin {margin:.4f} < {margin_thresh}"
+                            )
+                            pred_cloud[pred_cloud == class_id] = -1
 
             filtered_preds.append(pred_cloud)
 
