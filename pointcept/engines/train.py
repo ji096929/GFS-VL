@@ -113,6 +113,18 @@ class TrainerBase:
         raise NotImplementedError
 
     def after_step(self):
+        st = getattr(self, "_filter_stats", None)
+        if st is not None and self.cfg.get("use_margin_filter", False):
+            n = st["ps_drop"] + st["margin_drop"] + st["keep"]
+            if n - st.get("log_n", 0) >= 50 or n == 0:
+                total = max(n, 1)
+                self.logger.info(
+                    f"[filter] n={n} ps_drop={st['ps_drop']} "
+                    f"margin_drop={st['margin_drop']} keep={st['keep']} "
+                    f"margin_rate={st['margin_drop']/total:.2%}"
+                )
+                st["log_n"] = n
+
         for h in self.hooks:
             h.after_step()
 
@@ -473,7 +485,7 @@ class GFS_VL_Trainer(Trainer):
         # Load pre-trained weights if available
         if os.path.isfile(self.cfg.weight):
             self.logger.info(f"Loading weight at: {self.cfg.weight}")
-            checkpoint = torch.load(self.cfg.weight)
+            checkpoint = torch.load(self.cfg.weight, weights_only=False)
             weight = OrderedDict()
             for key, value in checkpoint["state_dict"].items():
                 if key.startswith("module."):
@@ -650,6 +662,8 @@ class GFS_VL_Trainer(Trainer):
         Returns:
             Tensor: Filtered 3D VLM predictions.
         """
+        if not hasattr(self, "_filter_stats"):
+            self._filter_stats = {"ps_drop": 0, "margin_drop": 0, "keep": 0, "log_n": 0}
         filtered_preds = []
         # Process each batch using provided offsets
         for start_idx, end_idx in zip([0] + offset[:-1], offset):
@@ -677,9 +691,7 @@ class GFS_VL_Trainer(Trainer):
                         proto, novel_proto, dim=0
                     )
                     if similarity < ps_thresh:
-                        self.logger.info(
-                            f"=> Filtering class {class_id}, similarity {similarity}"
-                        )
+                        self._filter_stats["ps_drop"] += 1
                         pred_cloud[pred_cloud == class_id] = -1
                     elif self.cfg.get("use_margin_filter", False):
                         # Margin filter: drop if mean feature sits too close to
@@ -687,11 +699,12 @@ class GFS_VL_Trainer(Trainer):
                         margin = self._compute_text_margin(proto, class_id)
                         margin_thresh = self.cfg.get("margin_thresh", 0.023)
                         if margin < margin_thresh:
-                            self.logger.info(
-                                f"=> Margin-filtering class {class_id}, "
-                                f"margin {margin:.4f} < {margin_thresh}"
-                            )
+                            self._filter_stats["margin_drop"] += 1
                             pred_cloud[pred_cloud == class_id] = -1
+                        else:
+                            self._filter_stats["keep"] += 1
+                    else:
+                        self._filter_stats["keep"] += 1
 
             filtered_preds.append(pred_cloud)
 

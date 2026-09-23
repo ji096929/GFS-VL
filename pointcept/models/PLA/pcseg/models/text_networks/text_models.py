@@ -22,7 +22,7 @@ def get_clip_model(backbone_name):
         model = torch.jit.load(model_path, map_location="cpu").eval()
         state_dict = model.state_dict()
     except RuntimeError:
-        state_dict = torch.load(model_path, map_location="cpu")
+        state_dict = torch.load(model_path, map_location="cpu", weights_only=False)
 
     model = clip.build_model(state_dict)
     return clip.tokenize, model

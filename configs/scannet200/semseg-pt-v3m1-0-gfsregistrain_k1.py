@@ -17,10 +17,11 @@ mix_prob = 0
 empty_cache = False
 enable_amp = True
 hooks = [
+    dict(type='CheckpointLoader', strict=False),
     dict(type="BackboneLoader", strict=False),
     dict(type="IterationTimer", warmup_iter=2),
     dict(type="InformationWriter"),
-    dict(type="CheckpointSaver_MultiRegis", save_freq=None),
+    dict(type="CheckpointSaver_MultiRegis", save_freq=3),
     dict(type="GFS_MultiregTrain_PreciseEvaluator", test_last=True),
 ]
 evaluate = False  # not evaluate after each epoch training process
@@ -140,7 +141,7 @@ data = dict(
                 mode="train",
                 return_grid_coord=True,
             ),
-            dict(type="SphereCrop", point_max=102400, mode="random"),
+            dict(type="SphereCrop", point_max=65536, mode="random"),
             dict(type="CenterShift", apply_z=False),
             dict(type="NormalizeColor"),
             dict(type="ToTensor"),

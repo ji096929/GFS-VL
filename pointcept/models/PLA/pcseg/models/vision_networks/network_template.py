@@ -249,7 +249,7 @@ class ModelTemplate(nn.Module):
             % (filename, "CPU" if to_cpu else "GPU")
         )
         loc_type = torch.device("cpu") if to_cpu else None
-        checkpoint = torch.load(filename, map_location=loc_type)
+        checkpoint = torch.load(filename, map_location=loc_type, weights_only=False)
         try:
             model_state_disk = checkpoint["model_state"]
         except:
@@ -299,7 +299,7 @@ class ModelTemplate(nn.Module):
             % (filename, "CPU" if to_cpu else "GPU")
         )
         loc_type = torch.device("cpu") if to_cpu else None
-        checkpoint = torch.load(filename, map_location=loc_type)
+        checkpoint = torch.load(filename, map_location=loc_type, weights_only=False)
         epoch = checkpoint.get("epoch", -1)
         it = checkpoint.get("it", 0.0)
 
@@ -321,7 +321,7 @@ class ModelTemplate(nn.Module):
                 optimizer_filename = "%s_optim.%s" % (src_file, ext)
                 if os.path.exists(optimizer_filename):
                     optimizer_ckpt = torch.load(
-                        optimizer_filename, map_location=loc_type
+                        optimizer_filename, map_location=loc_type, weights_only=False
                     )
                     optimizer.load_state_dict(
                         optimizer_ckpt["optimizer_state"]

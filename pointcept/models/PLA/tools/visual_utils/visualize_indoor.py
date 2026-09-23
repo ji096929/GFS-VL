@@ -23,7 +23,7 @@ def get_input(opt):
         label_file = os.path.join(opt.data_root, '{}_pth'.format(opt.split), opt.room_name + '.pth')
 
         xyz, rgb, alpha, face_indices = read_ply(input_file)
-        _, _, label, inst_label, *_ = torch.load(label_file)
+        _, _, label, inst_label, *_ = torch.load(label_file, weights_only=False)
         label[label == -100] = 20
         data_dict = {'xyz': xyz, 'rgb': rgb, 'label': label, 'inst_label': inst_label}
         data_dict['alpha'] = alpha

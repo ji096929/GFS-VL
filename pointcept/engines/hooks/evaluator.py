@@ -674,7 +674,7 @@ class GFS_MultiregTrain_PreciseEvaluator(HookBase):
             best_path = os.path.join(
                 self.trainer.cfg.save_path, "model", "model_best.pth"
             )
-            checkpoint = torch.load(best_path)
+            checkpoint = torch.load(best_path, weights_only=False)
             state_dict = checkpoint["state_dict"]
             tester.model.load_state_dict(state_dict, strict=True)
 

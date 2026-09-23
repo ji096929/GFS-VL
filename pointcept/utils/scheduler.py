@@ -27,7 +27,6 @@ class MultiStepLR(lr_scheduler.MultiStepLR):
             milestones=[rate * total_steps for rate in milestones],
             gamma=gamma,
             last_epoch=last_epoch,
-            verbose=verbose,
         )
 
 
@@ -65,7 +64,6 @@ class MultiStepWithWarmupLR(lr_scheduler.LambdaLR):
             optimizer=optimizer,
             lr_lambda=multi_step_with_warmup,
             last_epoch=last_epoch,
-            verbose=verbose,
         )
 
 
@@ -78,7 +76,6 @@ class PolyLR(lr_scheduler.LambdaLR):
             optimizer=optimizer,
             lr_lambda=lambda s: (1 - s / (total_steps + 1)) ** power,
             last_epoch=last_epoch,
-            verbose=verbose,
         )
 
 
@@ -91,7 +88,6 @@ class ExpLR(lr_scheduler.LambdaLR):
             optimizer=optimizer,
             lr_lambda=lambda s: gamma ** (s / total_steps),
             last_epoch=last_epoch,
-            verbose=verbose,
         )
 
 
@@ -105,7 +101,6 @@ class CosineAnnealingLR(lr_scheduler.CosineAnnealingLR):
             T_max=total_steps,
             eta_min=eta_min,
             last_epoch=last_epoch,
-            verbose=verbose,
         )
 
 
@@ -144,7 +139,6 @@ class OneCycleLR(lr_scheduler.OneCycleLR):
             final_div_factor=final_div_factor,
             three_phase=three_phase,
             last_epoch=last_epoch,
-            verbose=verbose,
         )
 
 

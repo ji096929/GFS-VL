@@ -24,14 +24,14 @@ def load_text_embedding_from_path(text_emb_cfg, logger):
         )
         text_embedding = torch.load(
             common_utils.oss_data_client.get(text_emb_path),
-            map_location=torch.device("cpu"),
+            map_location=torch.device("cpu"), weights_only=False
         ).detach()
     else:
         text_emb_path = os.path.join(
             cfg.DATA_CONFIG.DATA_PATH, text_emb_cfg.PATH
         )
         text_embedding = torch.load(
-            text_emb_path, map_location=torch.device("cpu")
+            text_emb_path, map_location=torch.device("cpu"), weights_only=False
         ).detach()
     if text_emb_cfg.get("NORM", True):
         text_embedding /= text_embedding.norm(dim=-1, keepdim=True)

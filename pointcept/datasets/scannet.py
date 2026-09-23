@@ -50,7 +50,7 @@ class ScanNetDataset(DefaultDataset):
         self.lr = (
             np.loadtxt(lr_file, dtype=str) if lr_file is not None else None
         )
-        self.la = torch.load(la_file) if la_file is not None else None
+        self.la = torch.load(la_file, weights_only=False) if la_file is not None else None
         super().__init__(**kwargs)
 
     def get_data_list(self):

@@ -17,3 +17,9 @@ Dockerfile
 venv/
 output
 version.py
+# Experiment artifacts (local only)
+data/
+pretrain_weights/
+exp/
+*.pth
+*.tar.gz

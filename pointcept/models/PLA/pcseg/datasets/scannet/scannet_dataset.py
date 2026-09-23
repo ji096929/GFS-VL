@@ -65,7 +65,7 @@ class ScanNetDataset(IndoorDataset):
                 label = SA.attach("shm://scannet_{}".format(scene_name + '_label_{}'.format(n_classes))).copy()
                 inst_label = SA.attach("shm://scannet_{}".format(scene_name + '_inst_label_{}'.format(n_classes))).copy()
             else:
-                xyz, _, label, inst_label, *others = torch.load(item)
+                xyz, _, label, inst_label, *others = torch.load(item, weights_only=False)
             inst_label_set = np.unique(inst_label).astype(np.int64)
             for ii in inst_label_set:
                 if ii < 0 or label[np.where(inst_label == ii)[0][0]] not in self.valid_class_idx:
@@ -91,9 +91,9 @@ class ScanNetDataset(IndoorDataset):
             if not check_exists(path):
                 if self.split_file.find('test') < 0:
                     if self.oss_client:
-                        xyz, rgb, label, inst_label, *others = torch.load(self.oss_client.get(item))
+                        xyz, rgb, label, inst_label, *others = torch.load(self.oss_client.get(item), weights_only=False)
                     else:
-                        xyz, rgb, label, inst_label, *others = torch.load(item)
+                        xyz, rgb, label, inst_label, *others = torch.load(item, weights_only=False)
                     sa_create("shm://scannet_{}".format(item.split('/')[-1][:-4] + '_label_{}'.format(n_classes)), label)
                     sa_create("shm://scannet_{}".format(item.split('/')[-1][:-4] + '_inst_label_{}'.format(n_classes)), inst_label)
                     if self.need_super_voxel:
@@ -101,9 +101,9 @@ class ScanNetDataset(IndoorDataset):
                         sa_create("shm://scannet_{}".format(item.split('/')[-1][:-4] + '_sv_{}'.format(n_classes)), np.array(sv))
                 else:
                     if self.oss_client:
-                        xyz, rgb = torch.load(self.oss_client.get(item))
+                        xyz, rgb = torch.load(self.oss_client.get(item), weights_only=False)
                     else:
-                        xyz, rgb = torch.load(item)
+                        xyz, rgb = torch.load(item, weights_only=False)
                 sa_create("shm://scannet_{}".format(item.split('/')[-1][:-4] + '_xyz_{}'.format(n_classes)), xyz)
                 sa_create("shm://scannet_{}".format(item.split('/')[-1][:-4] + '_rgb_{}'.format(n_classes)), rgb)
 
@@ -124,16 +124,16 @@ class ScanNetDataset(IndoorDataset):
         else:
             if self.split_file.find('test') < 0:
                 if self.oss_client:
-                    xyz, rgb, label, inst_label, *others = torch.load(self.oss_client.get(fn))
+                    xyz, rgb, label, inst_label, *others = torch.load(self.oss_client.get(fn), weights_only=False)
                 else:
-                    xyz, rgb, label, inst_label, *others = torch.load(fn)
+                    xyz, rgb, label, inst_label, *others = torch.load(fn, weights_only=False)
                 if self.need_super_voxel:
                     sv = others[1]
             else:
                 if self.oss_client:
-                    xyz, rgb = torch.load(self.oss_client.get(fn))
+                    xyz, rgb = torch.load(self.oss_client.get(fn), weights_only=False)
                 else:
-                    xyz, rgb = torch.load(fn)
+                    xyz, rgb = torch.load(fn, weights_only=False)
                 label = np.full(xyz.shape[0], self.ignore_label)
                 inst_label = np.full(xyz.shape[0], self.ignore_label)
 
@@ -173,7 +173,7 @@ class ScanNetDataset(IndoorDataset):
     def get_kd_data_v2(self, scene_name):
         random_idx = np.random.randint(0, 5)
         kd_feat_path = os.path.join(self.kd_label_dir, f'{scene_name}_{random_idx}.pt')
-        kd_data = torch.load(kd_feat_path)
+        kd_data = torch.load(kd_feat_path, weights_only=False)
         kd_feats = kd_data['feat'].numpy()[..., 0]
         kd_feats = kd_feats / (np.linalg.norm(kd_feats, axis=-1, keepdims=True) + 1e-6)
         kd_mask_full = kd_data['mask_full'].numpy()

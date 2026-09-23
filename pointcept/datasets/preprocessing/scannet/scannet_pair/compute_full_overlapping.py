@@ -53,7 +53,7 @@ def compute_full_overlapping(data_root, scene_id, voxel_size=0.05):
         (
             pcd_name,
             make_open3d_point_cloud(
-                torch.load(pcd_name)["coord"], voxel_size=voxel_size
+                torch.load(pcd_name, weights_only=False)["coord"], voxel_size=voxel_size
             ),
         )
         for pcd_name in glob.glob(os.path.join(data_root, scene_id, "pcd", "*.pth"))
