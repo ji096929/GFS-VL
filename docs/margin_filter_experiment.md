@@ -128,3 +128,90 @@ still removing noisy pseudo-labels.
 - `restore.sh` installs from prebuilt wheels (~2 min vs ~30 min recompile)
 - Torch compat patches: `weights_only=False` in `torch.load`, removed `MultiStepLR(verbose=)`,
   added `CheckpointLoader` hook for resume support
+
+---
+
+## Oracle Upper-Bound Experiment: Point-level vs Class-level Filtering
+
+**Date**: 2026-09-23  
+**Goal**: Determine if point-level margin filtering can recover the performance loss seen with class-level filtering.
+
+### Method
+
+For each val point predicted as novel class `c`:
+
+```
+margin_i = cos(f_i, text_c) - max_{b in base} cos(f_i, text_b)
+```
+
+Three filtering strategies compared (same VLM, same features):
+
+| Strategy | Rule |
+|----------|------|
+| **Class-level hard** (current) | If class mean margin < 0.023 → drop ALL points of that class |
+| **Point-level** | Drop individual points with margin < 0.023 |
+| **Oracle** | Keep only correct predictions (pred == GT), drop all wrong |
+
+**Note**: Labels mapped from 200-class (`segment200.npy`) to 57-class unified space via `regis_lookup_array`.  
+This mapping was missing in initial analysis (caused spurious all-zero results).
+
+### Aggregate Results
+
+| Strategy | mIoU-N | Precision | Recall | Kept |
+|----------|--------|-----------|--------|------|
+| Class-level | 0.046 | 0.061 | 0.109 | 95.1% |
+| Point-level | 0.049 | 0.097 | 0.107 | 25.9% |
+| **Oracle** | **0.126** | **0.511** | **0.126** | **2.2%** |
+
+### Key Findings
+
+**1. VLM pseudo-label quality is the binding constraint, not the filter.**
+
+Oracle upper bound is only **0.126 mIoU-N**. Even with perfect filtering of all wrong pseudo-labels, the ceiling is low because the VLM simply doesn't correctly predict most novel classes.
+
+- 98% of novel-class predictions are wrong (Oracle keeps only 2.2% of points)
+- Several classes have **zero** correct predictions from the VLM: nightstand, radiator, coffee table, office chair, couch, ceiling, lamp, tv, ...
+- The VLM "can" recognize some classes (book: 0.913, bathtub: 0.707, shower curtain: 0.614) but the noise level is catastrophic for others
+
+**2. Point-level filtering covers only 4% of the Oracle gap.**
+
+mIoU-N: CL=0.046 → PL=0.049 → OR=0.126.  
+Point-level margin recovers 0.003 out of 0.080 available. Margin signal is insufficient to separate correct novel points from noisy ones.
+
+**3. armchair: point-level helps but doesn't rescue.**
+
+| Strategy | P | R | IoU |
+|----------|---|---|-----|
+| Class-level | 0.000 | 0.000 | 0.000 |
+| Point-level | 0.523 | 0.032 | 0.031 |
+| Oracle | 1.000 | 0.432 | 0.432 |
+
+Class-level wipes armchair entirely. Point-level recovers some correct points (P=0.523) but drops 97% of them (R=0.032). Target of IoU ≥ 0.4 is only achievable at the Oracle level.
+
+**4. Long-tail recall barely improves.**
+
+Mean recall on [armchair, radiator, shelf, book, nightstand, office chair, pillow]:  
+CL=0.130 → PL=0.132 → OR=0.193
+
+### Verdict
+
+| Question | Answer |
+|----------|--------|
+| Can point-level filtering recover armchair to IoU ≥ 0.4? | **No** (0.031 vs target 0.4) |
+| Does point-level approach Oracle? | **No** (covers 4% of gap) |
+| Does long-tail recall recover? | **Barely** (0.132 vs 0.130 baseline) |
+
+**Margin filtering (class-level or point-level) is a second-order issue.** The first-order bottleneck is VLM pseudo-label quality for novel classes (~6% precision). Even the best possible filter cannot exceed mIoU-N = 0.126 with these pseudo-labels.
+
+### Recommendations
+
+1. **Improve VLM pseudo-label quality** (prompt engineering, multi-model ensemble, spatial post-processing) — this is the highest-leverage direction
+2. **Point-level margin filtering** — marginal benefit (4% of gap); deprioritize
+3. **Class-level margin filtering** — demonstrated harmful; remove
+
+### Environment Notes (Oracle experiment)
+
+- GPU-based margin computation in single streaming pass (52s for 49.5M points)
+- Label mapping: `regis_lookup_array` converts `segment200.npy` (200-class) to 57-class unified space
+- Text weights: CLIP ViT-B/32 with L2 normalization (`NORM=True` default)
+- No intermediate features cached (memory-safe streaming design)
