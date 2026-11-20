@@ -410,6 +410,31 @@ class ScanNet200Dataset_REGISTrain(ScanNet200Dataset_BASETrain):
             self.convert_index(data["segment"]).reshape([-1]).astype(np.int32)
         )
 
+        # offline pseudo-label injection (opt-in via GFS_OFFLINE_PL)
+        _pl_dir = os.environ.get("GFS_OFFLINE_PL", "")
+        if _pl_dir:
+            _p = os.path.join(_pl_dir, name + ".npy")
+            if os.path.exists(_p):
+                _pl = np.load(_p)
+                if len(_pl) == len(data["segment"]):
+                    _seg = data["segment"]
+                    _fill = (_seg == self.bg_label) & (_pl >= 0)
+                    _seg[_fill] = _pl[_fill]
+            else:
+                # soft-weight mode: {scene}_pl.npy + {scene}_w.npy
+                _p = os.path.join(_pl_dir, name + "_pl.npy")
+                _w = os.path.join(_pl_dir, name + "_w.npy")
+                if os.path.exists(_p) and os.path.exists(_w):
+                    _pl = np.load(_p)
+                    _wt = np.load(_w).astype(np.float32)
+                    if len(_pl) == len(data["segment"]):
+                        _seg = data["segment"]
+                        _fill = (_seg == self.bg_label) & (_pl >= 0)
+                        _seg[_fill] = _pl[_fill]
+                        _pw = np.ones(len(_seg), dtype=np.float32)
+                        _pw[_fill] = _wt[_fill]
+                        data["pl_weight"] = _pw
+
         # Sample novel classes and obtain one instance per class
         selected = random.sample(self.novel_classes, self.nb_mix_blks)
         novel_samples = []
@@ -433,6 +458,11 @@ class ScanNet200Dataset_REGISTrain(ScanNet200Dataset_BASETrain):
             data["segment"],
             data["mask"],
         ) = augmented
+        if "pl_weight" in data:
+            _extra = len(data["coord"]) - len(data["pl_weight"])
+            if _extra > 0:
+                data["pl_weight"] = np.concatenate(
+                    [data["pl_weight"], np.ones(_extra, dtype=np.float32)])
         return data
 
 

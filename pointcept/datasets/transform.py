@@ -40,6 +40,8 @@ class Collect(object):
         if isinstance(self.keys, str):
             self.keys = [self.keys]
         for key in self.keys:
+            if key not in data_dict:
+                continue
             data[key] = data_dict[key]
         for key, value in self.offset_keys.items():
             data[key] = torch.tensor([data_dict[value].shape[0]])
@@ -233,6 +235,8 @@ class RandomDropout(object):
                 data_dict["zslabel"] = data_dict["zslabel"][idx]
             if "instance" in data_dict.keys():
                 data_dict["instance"] = data_dict["instance"][idx]
+            if "pl_weight" in data_dict.keys():
+                data_dict["pl_weight"] = data_dict["pl_weight"][idx]
         return data_dict
 
 
@@ -943,6 +947,8 @@ class GridSample(object):
                 data_dict["displacement"] = displacement[idx_unique]
             for key in self.keys:
                 data_dict[key] = data_dict[key][idx_unique]
+            if "pl_weight" in data_dict.keys():
+                data_dict["pl_weight"] = data_dict["pl_weight"][idx_unique]
             if "all_segment" in data_dict.keys():
                 data_dict["all_segment"] = data_dict["all_segment"][idx_unique]
             if "loss_mask" in data_dict.keys():
@@ -1144,6 +1150,8 @@ class SphereCrop(object):
                 data_dict["displacement"] = data_dict["displacement"][idx_crop]
             if "strength" in data_dict.keys():
                 data_dict["strength"] = data_dict["strength"][idx_crop]
+            if "pl_weight" in data_dict.keys():
+                data_dict["pl_weight"] = data_dict["pl_weight"][idx_crop]
         return data_dict
 
 
