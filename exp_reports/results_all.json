@@ -239,6 +239,246 @@
   },
   "log": "/data01/jh/afford_diag/xl_runs/base_k5_s42.log"
  },
+ "base_k5_s42_pr": {
+  "summary": {
+   "mIoU": 0.3811,
+   "base": 0.674,
+   "novel": 0.303,
+   "hm": 0.418
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.665
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6441
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7483
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.4341
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.8023
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7203
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6713
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.1949
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.6779
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7478
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9551
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8266
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.3957
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8996
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.1532
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.4344
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.3755
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2838
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.215
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.7125
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.018
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.311
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.2966
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2045
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.4697
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.2978
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.5699
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.3465
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.6736
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.5857
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.2171
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.5415
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.1981
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.2902
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0044
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.2749
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.024
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0647
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.5993
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.7011
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.5109
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.3101
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0998
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.0312
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.4939
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.4957
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.0797
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.1141
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.3004
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.4874
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.3073
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.057
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1885
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/base_k5_s42_pr.log"
+ },
  "base_s13": {
   "summary": {
    "mIoU": 0.3755,
@@ -718,6 +958,1686 @@
    }
   },
   "log": "/data01/jh/afford_diag/xl_runs/base_s42.log"
+ },
+ "cos_base_k5_s42": {
+  "summary": {
+   "mIoU": 0.3548,
+   "base": 0.6886,
+   "novel": 0.2657,
+   "hm": 0.3835
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.618
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6488
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7558
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.5062
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.8126
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7476
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6817
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.2833
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.6954
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7357
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9544
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8242
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.3815
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8879
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.0988
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.4054
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.337
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2289
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2186
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.7088
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0159
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.1534
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.2884
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.099
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.4184
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.2612
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.5468
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.2535
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.6473
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.5189
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.1592
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.5993
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.1543
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.3889
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0326
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.279
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.03
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.532
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.7152
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.1482
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.2513
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.036
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.0002
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.5069
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.5006
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.0118
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.0706
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.1865
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.4412
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.29
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.0039
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1503
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/cos_base_k5_s42.log"
+ },
+ "cos_sym_k5_ep12": {
+  "summary": {
+   "mIoU": 0.3796,
+   "base": 0.6807,
+   "novel": 0.2994,
+   "hm": 0.4158
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.6602
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6705
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7329
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.4039
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.8031
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7504
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6747
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.255
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.6977
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7417
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9542
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8244
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.4063
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8921
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.0784
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.4131
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.3532
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2616
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2295
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.6969
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0177
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.3322
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.3462
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2527
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.4191
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3835
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.5503
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.318
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.6987
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0024
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.5983
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.2369
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.6178
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.1029
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.3852
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0613
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.2433
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0311
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0525
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.5317
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.7147
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.5198
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.2146
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0899
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.129
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.483
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.3089
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.0991
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.1947
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.1642
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.4582
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.2939
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.1508
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1373
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/cos_sym_k5_ep12.log"
+ },
+ "cos_sym_k5_ep16": {
+  "summary": {
+   "mIoU": 0.3938,
+   "base": 0.6804,
+   "novel": 0.3174,
+   "hm": 0.4329
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.653
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6687
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7382
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.4386
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.8042
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7459
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6745
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.2444
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.7124
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7053
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9545
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8257
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.4156
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8911
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.118
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.3538
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.375
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2791
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2251
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.7034
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0303
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.3369
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.3638
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2458
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.4049
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3899
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.5952
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.3244
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.7006
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0028
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.6115
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.2201
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.6365
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.2025
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.407
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0349
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.2669
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0356
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0526
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.5506
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.7253
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.5568
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.2684
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0975
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.1899
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.4832
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.4941
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.1514
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.2172
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.2227
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.4712
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.3339
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.1486
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1481
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/cos_sym_k5_ep16.log"
+ },
+ "cos_sym_k5_ep4": {
+  "summary": {
+   "mIoU": 0.3484,
+   "base": 0.6751,
+   "novel": 0.2613,
+   "hm": 0.3768
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.6671
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6481
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7045
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.464
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.789
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7312
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6581
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.2253
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.698
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7362
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9535
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8257
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.3818
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8842
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.0722
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0001
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.3574
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.2959
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2489
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.1995
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.6403
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0129
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.3054
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.2934
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2119
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.4053
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3268
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.5114
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.299
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.6455
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.6209
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.1409
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.4874
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.1113
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.4012
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0073
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.1744
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0397
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0018
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.4067
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.7133
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.3715
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.3093
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0501
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.0393
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.4227
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.1363
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.0352
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.1822
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.0928
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.3985
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.2628
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.0831
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1796
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/cos_sym_k5_ep4.log"
+ },
+ "cos_sym_k5_ep8": {
+  "summary": {
+   "mIoU": 0.363,
+   "base": 0.6572,
+   "novel": 0.2845,
+   "hm": 0.3971
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.6524
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6306
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.6754
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.3254
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.7961
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7436
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6554
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.2422
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.6922
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7033
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9536
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8161
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.3791
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.878
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.1281
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.3974
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.3483
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2557
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2044
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.6831
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0132
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.3463
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.2966
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2501
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.3729
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3536
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.535
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.295
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.6491
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0005
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.4537
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.2402
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.6082
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.1793
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.4164
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0184
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.2405
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0409
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0484
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.5497
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.6889
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.2629
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.2061
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0725
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.0458
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.3733
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.4874
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.1516
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.0477
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.2189
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.5025
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.2986
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.0822
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1826
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/cos_sym_k5_ep8.log"
+ },
+ "cos_sym_k5_s42": {
+  "summary": {
+   "mIoU": 0.3938,
+   "base": 0.6835,
+   "novel": 0.3165,
+   "hm": 0.4326
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.6568
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6742
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7268
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.4532
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.8077
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.75
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6756
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.2457
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.7077
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7232
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9549
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.826
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.419
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8912
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.1193
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.4016
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.3781
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2809
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2245
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.7299
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0377
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.3405
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.3555
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2538
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.4259
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3824
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.609
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.3229
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.6929
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0093
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.5395
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.2331
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.6373
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.1708
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.4005
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0324
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.2728
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0354
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0544
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.5381
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.7284
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.5472
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.2751
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0933
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.1972
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.4785
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.4891
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.1585
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.2146
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.2039
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.4741
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.3293
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.1126
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1516
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/cos_sym_k5_s42.log"
+ },
+ "detach_sym_k5_s42": {
+  "summary": {
+   "mIoU": 0.3724,
+   "base": 0.6838,
+   "novel": 0.2894,
+   "hm": 0.4066
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.6491
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6566
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7118
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.5452
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.8221
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7219
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6576
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.2252
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.6756
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.76
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9546
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8255
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.419
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8957
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.1225
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0014
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.4306
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.3611
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.287
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2486
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.6657
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0379
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.2219
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.3498
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2036
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.4406
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3789
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.5241
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.3028
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.6643
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0068
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.5997
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.1816
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.5047
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.021
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.3823
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.039
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.2658
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0284
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0539
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.4776
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.732
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.4083
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.3204
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0982
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.1012
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0273
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.3989
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.3291
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.1604
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.1847
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.1177
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.4373
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.3011
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.1789
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.109
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/detach_sym_k5_s42.log"
  },
  "gated_sym_xl_s42": {
   "summary": {
@@ -2879,6 +4799,726 @@
   },
   "log": "/data01/jh/afford_diag/xl_runs/support_sym_s42.log"
  },
+ "sym_k1_a090": {
+  "summary": {
+   "mIoU": 0.3817,
+   "base": 0.6972,
+   "novel": 0.2976,
+   "hm": 0.4171
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.6392
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6491
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7271
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.5262
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.7994
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7468
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6845
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.3561
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.6898
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7674
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9517
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8286
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.3874
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8891
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.0806
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0002
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.3816
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.4029
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2784
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2103
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.755
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.056
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.2092
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.282
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2057
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.464
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3783
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.6788
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.211
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.7148
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.6861
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.1647
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.6652
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.0359
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.3671
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0366
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.218
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0322
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0648
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.5652
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.7395
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.5205
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.303
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0769
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.0527
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0093
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.4352
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.3663
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.1819
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.171
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.191
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.4586
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.2896
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.0462
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.13
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/sym_k1_a090.log"
+ },
+ "sym_k5_a080": {
+  "summary": {
+   "mIoU": 0.3852,
+   "base": 0.6927,
+   "novel": 0.3032,
+   "hm": 0.4218
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.619
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.6112
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7251
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.5403
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.8126
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.705
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6848
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.3677
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.7001
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7673
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9524
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8263
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.4104
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8919
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.0307
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.3817
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.4069
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2076
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2325
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.7463
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0653
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.282
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.3357
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2165
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.4443
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3538
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.6588
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.2957
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.7063
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0013
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.6534
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.2194
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.5389
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.013
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.4358
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0124
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.2779
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0456
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0583
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.5724
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.717
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.4815
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.3028
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0378
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.1819
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.006
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.4253
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.4412
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.178
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.1952
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.1289
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.52
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.355
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.0486
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1301
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/sym_k5_a080.log"
+ },
+ "sym_k5_a090": {
+  "summary": {
+   "mIoU": 0.3929,
+   "base": 0.6834,
+   "novel": 0.3154,
+   "hm": 0.4316
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.6268
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.626
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7385
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.4554
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.808
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7164
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.687
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.3143
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.7013
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.7499
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9541
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8236
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.4043
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8919
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.0711
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.3959
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.4078
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2428
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2357
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.7449
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0657
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.3202
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.3537
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.244
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.4013
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3421
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.6484
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.3339
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.6963
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0009
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.6229
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.2147
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.6155
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.09
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.4261
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0132
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.2884
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0502
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0574
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.5639
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.7151
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.4981
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.3008
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0622
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.2336
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0095
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.4695
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.5541
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.1815
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.1911
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.127
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.5195
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.3842
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.0609
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1444
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/sym_k5_a090.log"
+ },
  "sym_xl_k5_s42_eval": {
   "summary": {
    "mIoU": 0.3874,
@@ -3118,6 +5758,246 @@
    }
   },
   "log": "/data01/jh/afford_diag/xl_runs/sym_xl_k5_s42_eval.log"
+ },
+ "sym_xl_k5_s42_pr": {
+  "summary": {
+   "mIoU": 0.3874,
+   "base": 0.6569,
+   "novel": 0.3155,
+   "hm": 0.4263
+  },
+  "n_classes": 57,
+  "classes": {
+   "0": {
+    "name": "refrigerator",
+    "iou": 0.6307
+   },
+   "1": {
+    "name": "desk",
+    "iou": 0.631
+   },
+   "2": {
+    "name": "curtain",
+    "iou": 0.7496
+   },
+   "3": {
+    "name": "bookshelf",
+    "iou": 0.3012
+   },
+   "4": {
+    "name": "bed",
+    "iou": 0.7836
+   },
+   "5": {
+    "name": "table",
+    "iou": 0.7147
+   },
+   "6": {
+    "name": "window",
+    "iou": 0.6822
+   },
+   "7": {
+    "name": "cabinet",
+    "iou": 0.2504
+   },
+   "8": {
+    "name": "door",
+    "iou": 0.7028
+   },
+   "9": {
+    "name": "chair",
+    "iou": 0.6687
+   },
+   "10": {
+    "name": "floor",
+    "iou": 0.9542
+   },
+   "11": {
+    "name": "wall",
+    "iou": 0.8138
+   },
+   "12": {
+    "name": "trash can",
+    "iou": 0.398
+   },
+   "13": {
+    "name": "ceiling",
+    "iou": 0.8867
+   },
+   "14": {
+    "name": "doorframe",
+    "iou": 0.1164
+   },
+   "15": {
+    "name": "object",
+    "iou": 0.0
+   },
+   "16": {
+    "name": "shelf",
+    "iou": 0.3996
+   },
+   "17": {
+    "name": "sink",
+    "iou": 0.4023
+   },
+   "18": {
+    "name": "picture",
+    "iou": 0.2585
+   },
+   "19": {
+    "name": "backpack",
+    "iou": 0.2338
+   },
+   "20": {
+    "name": "couch",
+    "iou": 0.7377
+   },
+   "21": {
+    "name": "box",
+    "iou": 0.0659
+   },
+   "22": {
+    "name": "pillow",
+    "iou": 0.3277
+   },
+   "23": {
+    "name": "radiator",
+    "iou": 0.3623
+   },
+   "24": {
+    "name": "mirror",
+    "iou": 0.2583
+   },
+   "25": {
+    "name": "whiteboard",
+    "iou": 0.3498
+   },
+   "26": {
+    "name": "lamp",
+    "iou": 0.3328
+   },
+   "27": {
+    "name": "toilet",
+    "iou": 0.6322
+   },
+   "28": {
+    "name": "book",
+    "iou": 0.2767
+   },
+   "29": {
+    "name": "monitor",
+    "iou": 0.6868
+   },
+   "30": {
+    "name": "towel",
+    "iou": 0.0011
+   },
+   "31": {
+    "name": "tv",
+    "iou": 0.5872
+   },
+   "32": {
+    "name": "clothes",
+    "iou": 0.2219
+   },
+   "33": {
+    "name": "coffee table",
+    "iou": 0.6219
+   },
+   "34": {
+    "name": "office chair",
+    "iou": 0.2061
+   },
+   "35": {
+    "name": "nightstand",
+    "iou": 0.4049
+   },
+   "36": {
+    "name": "bag",
+    "iou": 0.0122
+   },
+   "37": {
+    "name": "dresser",
+    "iou": 0.2916
+   },
+   "38": {
+    "name": "toilet paper",
+    "iou": 0.0536
+   },
+   "39": {
+    "name": "recycling bin",
+    "iou": 0.0575
+   },
+   "40": {
+    "name": "kitchen cabinet",
+    "iou": 0.5408
+   },
+   "41": {
+    "name": "bathtub",
+    "iou": 0.7106
+   },
+   "42": {
+    "name": "telephone",
+    "iou": 0.0
+   },
+   "43": {
+    "name": "plant",
+    "iou": 0.5058
+   },
+   "44": {
+    "name": "stool",
+    "iou": 0.2713
+   },
+   "45": {
+    "name": "keyboard",
+    "iou": 0.0767
+   },
+   "46": {
+    "name": "shoe",
+    "iou": 0.2496
+   },
+   "47": {
+    "name": "jacket",
+    "iou": 0.0078
+   },
+   "48": {
+    "name": "shower curtain",
+    "iou": 0.503
+   },
+   "49": {
+    "name": "armchair",
+    "iou": 0.5557
+   },
+   "50": {
+    "name": "microwave",
+    "iou": 0.1776
+   },
+   "51": {
+    "name": "computer tower",
+    "iou": 0.1707
+   },
+   "52": {
+    "name": "bathroom vanity",
+    "iou": 0.1403
+   },
+   "53": {
+    "name": "kitchen counter",
+    "iou": 0.5147
+   },
+   "54": {
+    "name": "shower wall",
+    "iou": 0.3929
+   },
+   "55": {
+    "name": "paper towel dispenser",
+    "iou": 0.0527
+   },
+   "56": {
+    "name": "file cabinet",
+    "iou": 0.1428
+   }
+  },
+  "log": "/data01/jh/afford_diag/xl_runs/sym_xl_k5_s42_pr.log"
  },
  "sym_xl_s13": {
   "summary": {
