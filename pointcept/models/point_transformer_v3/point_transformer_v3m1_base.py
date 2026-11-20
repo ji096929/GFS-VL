@@ -210,14 +210,22 @@ class SerializedAttention(PointModule):
             if self.upcast_attention:
                 q = q.float()
                 k = k.float()
-            attn = (q * self.scale) @ k.transpose(-2, -1)  # (N', H, K, K)
-            if self.enable_rpe:
+            if not self.enable_rpe:
+                # q,k,v are (N', H, K, C//H) = 4D (B,H,L,E); SDPA picks a
+                # memory-efficient backend for this layout (no KxK materialization)
+                feat = torch.nn.functional.scaled_dot_product_attention(
+                    q, k, v,
+                    dropout_p=self.attn_drop.p if self.training else 0.0,
+                )
+                feat = feat.transpose(1, 2).reshape(-1, C)
+            else:
+                attn = (q * self.scale) @ k.transpose(-2, -1)  # (N', H, K, K)
                 attn = attn + self.rpe(self.get_rel_pos(point, order))
-            if self.upcast_softmax:
-                attn = attn.float()
-            attn = self.softmax(attn)
-            attn = self.attn_drop(attn).to(qkv.dtype)
-            feat = (attn @ v).transpose(1, 2).reshape(-1, C)
+                if self.upcast_softmax:
+                    attn = attn.float()
+                attn = self.softmax(attn)
+                attn = self.attn_drop(attn).to(qkv.dtype)
+                feat = (attn @ v).transpose(1, 2).reshape(-1, C)
         else:
             feat = flash_attn.flash_attn_varlen_qkvpacked_func(
                 qkv.half().reshape(-1, 3, H, C // H),
