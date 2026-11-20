@@ -103,6 +103,8 @@ class RegisTrainSegmentor(nn.Module):
         mlp_hidden=0,
         base_cross=False,
         depth_gate=False,
+        detach_cross=False,
+        lam_cross=0.0,
         decorr_weight=0.0,
     ):
         super().__init__()
@@ -110,6 +112,8 @@ class RegisTrainSegmentor(nn.Module):
         self.mlp_hidden = int(mlp_hidden)
         self.base_cross = bool(base_cross)
         self.depth_gate = bool(depth_gate)
+        self.detach_cross = bool(detach_cross)
+        self.lam_cross = float(lam_cross)
         self.decorr_weight = float(decorr_weight)
         self._decorr_first = None
 
@@ -228,7 +232,10 @@ class RegisTrainSegmentor(nn.Module):
         ln0 = self.dec0_norm(feat.float())
         projs = []
         for s in self.cross_layers:
-            h = self.cross_norms[str(s)](self._to_full(s).float())
+            _h = self._to_full(s).float()
+            if self.detach_cross:
+                _h = _h.detach()
+            h = self.cross_norms[str(s)](_h)
             h = torch.nn.functional.gelu(self.cross_projs[str(s)](h))
             projs.append(self.cross_outs[str(s)](h))
         if self.depth_gate:
@@ -251,6 +258,7 @@ class RegisTrainSegmentor(nn.Module):
 
             base_seg_logits = self.seg_head(feat)
             decorr_loss = None
+            cross_logits = None
             if self.mlp_hidden:
                 novel_seg_logits = self.novel_mlp(
                     feat.float()
@@ -260,9 +268,16 @@ class RegisTrainSegmentor(nn.Module):
                 novel_in = torch.cat([ln0] + projs, dim=1).to(feat.dtype)
                 novel_seg_logits = self.novel_seg_head(novel_in)
                 if self.base_cross:
-                    base_seg_logits = base_seg_logits + self.base_cross_head(
-                        torch.cat(projs, dim=1).to(feat.dtype)
-                    )
+                    _cf = torch.cat(projs, dim=1).to(feat.dtype)
+                    _bc = self.base_cross_head(_cf)
+                    base_seg_logits = base_seg_logits + _bc
+                    # L_cross: 在纯跨层子空间做辅助监督，消除 base_cross_head
+                    # 被 seg_head(dec0) 遮住梯度的问题（推理时不用）。
+                    if self.training and self.lam_cross > 0:
+                        _cn = torch.nn.functional.linear(
+                            _cf, self.novel_seg_head.weight[:, 64:]
+                        )
+                        cross_logits = torch.cat([_bc, _cn], dim=1)
                 if self.training and self.decorr_weight > 0:
                     decorr_loss = self._decorr(ln0, projs)
             else:
@@ -277,6 +292,8 @@ class RegisTrainSegmentor(nn.Module):
             out = dict(seg_logits=seg_logits)
             if decorr_loss is not None:
                 out["decorr_loss"] = decorr_loss
+            if cross_logits is not None:
+                out["cross_logits"] = cross_logits
             return out
         # eval
         elif "segment" in input_dict.keys():

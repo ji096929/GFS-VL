@@ -672,6 +672,7 @@ class GFS_VL_Trainer(Trainer):
             output_dict = self.model(input_dict)
             seg_logits = output_dict.pop("seg_logits")
             decorr_loss = output_dict.pop("decorr_loss", None)
+            cross_logits = output_dict.pop("cross_logits", None)
             criteria = (
                 self.model.module.criteria
                 if comm.get_world_size() > 1
@@ -698,6 +699,9 @@ class GFS_VL_Trainer(Trainer):
                 loss = criteria(seg_logits, new_target)
             if decorr_loss is not None:
                 loss = loss + decorr_loss
+            if cross_logits is not None:
+                _lam = float(getattr(self.cfg, "lam_cross", 0.3))
+                loss = loss + _lam * criteria(cross_logits, new_target)
             output_dict["loss"] = loss
 
         self.optimizer.zero_grad()
@@ -869,12 +873,27 @@ class GFS_VL_Trainer(Trainer):
             feat_neg_one = feat_cloud[mask_neg_one]
 
             # Compute cosine similarity between these features and the updated prototypes
-            similarities = torch.cosine_similarity(
-                feat_neg_one[:, None, :],
-                updated_prototypes[None, :, :],
-                dim=-1,
-            )
-            max_similarity, max_class_idx = similarities.max(dim=1)
+            # 分块计算：大场景（原始点数）整场景都是 -1，M 极大，
+            # (M,45,512) 广播会撑爆显存。分块不改变结果。
+            _chunk = 16384
+            _ms, _mc = [], []
+            for _s in range(0, feat_neg_one.shape[0], _chunk):
+                _f = feat_neg_one[_s:_s + _chunk]
+                _sim = torch.cosine_similarity(
+                    _f[:, None, :],
+                    updated_prototypes[None, :, :],
+                    dim=-1,
+                )
+                _a, _b = _sim.max(dim=1)
+                _ms.append(_a)
+                _mc.append(_b)
+            if _ms:
+                max_similarity = torch.cat(_ms)
+                max_class_idx = torch.cat(_mc)
+            else:
+                max_similarity = torch.empty(0, device=feat_neg_one.device)
+                max_class_idx = torch.empty(
+                    0, dtype=torch.long, device=feat_neg_one.device)
             refined_labels = pred_cloud.clone()
             refined_labels[mask_neg_one] = torch.where(
                 max_similarity >= self.cfg.ai_thresh,
