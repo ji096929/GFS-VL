@@ -12,7 +12,7 @@ test = dict(type="GFSSemSegTester")
 
 # misc custom setting
 batch_size = 12  # bs: total bs in all gpus
-num_worker = 15  # larger than 15 has timeout errors
+num_worker = 4  # larger than 15 has timeout errors
 mix_prob = 0
 empty_cache = False
 enable_amp = True
@@ -63,7 +63,7 @@ model = dict(
         shuffle_orders=True,
         pre_norm=True,
         enable_rpe=False,
-        enable_flash=True,
+        enable_flash=False,
         upcast_attention=False,
         upcast_softmax=False,
         cls_mode=False,
@@ -91,9 +91,9 @@ scheduler = dict(
 param_dicts = [dict(keyword="backbone", lr=0.0001)]
 
 # dataset settings
-data_root = "data/ScanNet200"
+data_root = "/data01/jh/data/scannet200_gfs"
 k_shot = 1
-regis_train_list = ["regis1", "regis2", "regis3", "regis4", "regis5"]
+regis_train_list = ["regis1"]
 
 data = dict(
     num_bases=len(CLASS_LABELS_BASE),

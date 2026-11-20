@@ -142,6 +142,24 @@ class TrainerBase:
             self.writer.close()
 
 
+def _reserve_vram():
+    """预占峰值显存（单方面防抢卡）。
+
+    PyTorch 的缓存分配器在 del 之后不会把显存还给驱动，nvidia-smi 仍显示占用，
+    但后续分配可以复用。开关：环境变量 GFS_RESERVE_GB（默认 0，关闭）。
+    """
+    gb = float(os.environ.get("GFS_RESERVE_GB", "0") or 0)
+    if gb <= 0:
+        return
+    n = int(gb * (1024 ** 3) // 4)
+    try:
+        buf = torch.empty(n, dtype=torch.float32, device="cuda")
+        del buf
+        print("[reserve_vram] reserved %.1f GB into allocator cache" % gb, flush=True)
+    except Exception as e:  # noqa: BLE001
+        print("[reserve_vram] failed: %s" % e, flush=True)
+
+
 @TRAINERS.register_module("DefaultTrainer")
 class Trainer(TrainerBase):
     def __init__(self, cfg):
@@ -158,6 +176,8 @@ class Trainer(TrainerBase):
         self.cfg = cfg
         self.logger.info(f"Save path: {cfg.save_path}")
         self.logger.info(f"Config:\n{cfg.pretty_text}")
+        self.logger.info("=> Reserve VRAM ...")
+        _reserve_vram()
         self.logger.info("=> Building model ...")
         self.model = self.build_model()
         self.logger.info("=> Building writer ...")
@@ -349,7 +369,12 @@ class GFS_VL_Trainer(Trainer):
     def __init__(self, cfg):
         """Initialize the trainer and build the 3D VLM."""
         super().__init__(cfg)
-        self.build_zero_shot_model()
+        if not os.environ.get("GFS_OFFLINE_PL", ""):
+            self.build_zero_shot_model()
+        else:
+            # offline pseudo-labels: no VLM needed, saves ~3GB and 3min init
+            self.VLM_3D = None
+            self.VLM_3D_cfg = None
 
     def build_zero_shot_model(self):
         """
@@ -536,8 +561,18 @@ class GFS_VL_Trainer(Trainer):
                 collate_fn=collate_fn,
             )
 
+            # 多 split 训练时按 seed 切换离线伪标签目录
+            _tmpl = os.environ.get("GFS_OFFLINE_PL_TMPL", "")
+            if _tmpl:
+                os.environ["GFS_OFFLINE_PL"] = _tmpl.replace(
+                    "{seed}", str(val_data_cfg["seed"]))
+                self.logger.info(
+                    "=> Offline PL dir: " + os.environ["GFS_OFFLINE_PL"])
             # Extract 3D VLM feature prototypes on novel classes from current registration set
-            self.vlm_novel_proto = self.extract_3d_vlm_proto(regis_val_loader)
+            if os.environ.get("GFS_OFFLINE_PL", ""):
+                self.vlm_novel_proto = None
+            else:
+                self.vlm_novel_proto = self.extract_3d_vlm_proto(regis_val_loader)
 
             # Update the training dataset configuration
             self.cfg.data.train.k_shot = self.cfg.k_shot
@@ -609,12 +644,33 @@ class GFS_VL_Trainer(Trainer):
         with torch.cuda.amp.autocast(enabled=self.cfg.enable_amp):
             output_dict = self.model(input_dict)
             seg_logits = output_dict.pop("seg_logits")
+            decorr_loss = output_dict.pop("decorr_loss", None)
             criteria = (
                 self.model.module.criteria
                 if comm.get_world_size() > 1
                 else self.model.criteria
             )
-            loss = criteria(seg_logits, new_target)
+            if "pl_weight" in input_dict:
+                ce = torch.nn.functional.cross_entropy(
+                    seg_logits, new_target, reduction="none", ignore_index=-1)
+                w = input_dict["pl_weight"].float()
+                valid = new_target != -1
+                loss = (ce * w)[valid].sum() / (w[valid].sum() + 1e-6)
+                if os.environ.get("GFS_DEBUG_W") and not getattr(self, "_w_dbg", False):
+                    self._w_dbg = True
+                    pw = w[valid]
+                    base = (new_target >= 0) & (new_target < 12)
+                    self.logger.info(
+                        "[pl_weight] n=%d mean=%.3f min=%.3f max=%.3f | "
+                        "base-GT w min=%.3f max=%.3f"
+                        % (int(valid.sum()), float(pw.mean()), float(pw.min()),
+                           float(pw.max()),
+                           float(w[base].min()) if base.any() else -1.0,
+                           float(w[base].max()) if base.any() else -1.0))
+            else:
+                loss = criteria(seg_logits, new_target)
+            if decorr_loss is not None:
+                loss = loss + decorr_loss
             output_dict["loss"] = loss
 
         self.optimizer.zero_grad()
@@ -715,6 +771,9 @@ class GFS_VL_Trainer(Trainer):
         """
         Calibrate the segmentation target labels using 3D VLM and few-shot data.
         """
+        if os.environ.get("GFS_OFFLINE_PL", ""):
+            # offline pseudo-labels already merged into segment by the dataset
+            return input_dict["segment"].clone()
         data_dict = self.construct_3D_vlm_input(input_dict)
         ret_dict = self.VLM_3D(data_dict)
 

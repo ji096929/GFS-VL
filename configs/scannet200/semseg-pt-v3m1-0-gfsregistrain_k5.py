@@ -92,7 +92,7 @@ param_dicts = [dict(keyword="backbone", lr=0.0001)]
 # dataset settings
 data_root = "data/ScanNet200"
 k_shot = 5
-regis_train_list = ["regis1", "regis2", "regis3", "regis4", "regis5"]
+regis_train_list = ["regis1"]
 
 data = dict(
     num_bases=len(CLASS_LABELS_BASE),

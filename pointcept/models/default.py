@@ -82,6 +82,14 @@ class DefaultSegmentorV2(nn.Module):
 
 @MODELS.register_module()
 class RegisTrainSegmentor(nn.Module):
+    """Base/novel 双头分割器，支持三种 novel 读出增强。
+
+    cross_layers/cross_dims/cross_dim: 跨层读出（dec1/dec2 -> cross_dim）。
+    mlp_hidden: >0 时 novel head 改成 dec0-only 的两层 MLP（消融用）。
+    base_cross: True 时给 seg_head 加零初始化残差，输入 proj1/proj2。
+    depth_gate: True 时用逐点门控缩放 proj1/proj2。
+    """
+
     def __init__(
         self,
         num_base_classes,
@@ -89,38 +97,187 @@ class RegisTrainSegmentor(nn.Module):
         backbone_out_channels,
         backbone=None,
         criteria=None,
+        cross_layers=(),
+        cross_dims=(),
+        cross_dim=64,
+        mlp_hidden=0,
+        base_cross=False,
+        depth_gate=False,
+        decorr_weight=0.0,
     ):
         super().__init__()
+        self.cross_layers = tuple(cross_layers)
+        self.mlp_hidden = int(mlp_hidden)
+        self.base_cross = bool(base_cross)
+        self.depth_gate = bool(depth_gate)
+        self.decorr_weight = float(decorr_weight)
+        self._decorr_first = None
+
         self.seg_head = (
             nn.Linear(backbone_out_channels, num_base_classes)
             if num_base_classes > 0
             else nn.Identity()
         )
 
-        self.novel_seg_head = nn.Linear(
-            backbone_out_channels, num_novel_classes, bias=False
-        )
+        if self.mlp_hidden:
+            assert not self.cross_layers
+            self.novel_mlp = nn.Sequential(
+                nn.LayerNorm(backbone_out_channels),
+                nn.Linear(backbone_out_channels, self.mlp_hidden),
+                nn.GELU(),
+                nn.LayerNorm(self.mlp_hidden),
+                nn.Linear(self.mlp_hidden, num_novel_classes, bias=False),
+            )
+            self.novel_seg_head = None
+        elif self.cross_layers:
+            assert len(cross_dims) == len(self.cross_layers)
+            self.dec0_norm = nn.LayerNorm(backbone_out_channels)
+            self.cross_norms = nn.ModuleDict()
+            self.cross_projs = nn.ModuleDict()
+            self.cross_outs = nn.ModuleDict()
+            for s, c in zip(self.cross_layers, cross_dims):
+                self.cross_norms[str(s)] = nn.LayerNorm(c)
+                self.cross_projs[str(s)] = nn.Linear(c, cross_dim)
+                self.cross_outs[str(s)] = nn.LayerNorm(cross_dim)
+            novel_in = backbone_out_channels + cross_dim * len(
+                self.cross_layers
+            )
+            self.novel_seg_head = nn.Linear(
+                novel_in, num_novel_classes, bias=False
+            )
+        else:
+            self.novel_seg_head = nn.Linear(
+                backbone_out_channels, num_novel_classes, bias=False
+            )
+
+        if self.base_cross:
+            assert self.cross_layers
+            self.base_cross_head = nn.Linear(
+                cross_dim * len(self.cross_layers),
+                num_base_classes,
+                bias=False,
+            )
+            nn.init.zeros_(self.base_cross_head.weight)
+
+        if self.depth_gate:
+            assert self.cross_layers
+            assert novel_in == backbone_out_channels + cross_dim * len(
+                self.cross_layers
+            )
+            self.depth_gate = nn.Sequential(
+                nn.Linear(novel_in, 64),
+                nn.GELU(),
+                nn.Linear(64, 2),
+            )
+            nn.init.zeros_(self.depth_gate[-1].weight)
+            nn.init.zeros_(self.depth_gate[-1].bias)
+
         self.backbone = build_model(backbone)
         self.criteria = build_criteria(criteria)
 
+        self._cr = {}
+        if self.cross_layers:
+            n_dec = len(self.backbone.dec._modules)
+            for s in range(n_dec):
+                up = self.backbone.dec._modules["dec%d" % s]._modules["up"]
+                up.register_forward_pre_hook(self._make_inv_hook(s))
+            for s in self.cross_layers:
+                dec = self.backbone.dec._modules["dec%d" % s]
+                dec.register_forward_hook(self._make_feat_hook(s))
+
+    def _make_inv_hook(self, s):
+        key = "inv%d" % s
+
+        def hook(module, inputs):
+            self._cr[key] = inputs[0]["pooling_inverse"]
+
+        return hook
+
+    def _make_feat_hook(self, s):
+        key = "f%d" % s
+
+        def hook(module, inputs, output):
+            self._cr[key] = output.feat
+
+        return hook
+
+    def _to_full(self, s):
+        feat = self._cr["f%d" % s]
+        for t in range(s - 1, -1, -1):
+            feat = feat[self._cr["inv%d" % t]]
+        return feat
+
+    def _decorr(self, ln0, projs):
+        # ln0 必须 detach：正则只推 proj 分支，不碰 dec0 的 Base 流形
+        z = torch.cat([ln0.detach()] + list(projs), dim=1).float()
+        n = z.shape[0]
+        if n > 8192:
+            idx = torch.randperm(n, device=z.device)[:8192]
+            z = z[idx]
+        zh = (z - z.mean(0)) / (z.std(0) + 1e-5)
+        c = (zh.T @ zh) / zh.shape[0]
+        eye = torch.eye(c.shape[0], device=c.device)
+        loss = (c - eye).pow(2).sum() / (c.shape[0] * (c.shape[0] - 1))
+        if self._decorr_first is None:
+            self._decorr_first = float(loss)
+            if 0.1 * self._decorr_first > 0.1:
+                self.decorr_weight = 0.02
+        return self.decorr_weight * loss
+
+    def _cross_projs(self, feat):
+        ln0 = self.dec0_norm(feat.float())
+        projs = []
+        for s in self.cross_layers:
+            h = self.cross_norms[str(s)](self._to_full(s).float())
+            h = torch.nn.functional.gelu(self.cross_projs[str(s)](h))
+            projs.append(self.cross_outs[str(s)](h))
+        if self.depth_gate:
+            g = torch.sigmoid(
+                self.depth_gate(torch.cat([ln0] + projs, dim=1))
+            )
+            projs = [g[:, i:i + 1] * projs[i] for i in range(len(projs))]
+        return ln0, projs
 
     def forward(self, input_dict):
-        point = Point(input_dict)
-        point = self.backbone(point)
-        # Backbone added after v1.5.0 return Point instead of feat and use DefaultSegmentorV2
-        # TODO: remove this part after make all backbone return Point only.
-        if isinstance(point, Point):
-            feat = point.feat
-        else:
-            feat = point
+        try:
+            point = Point(input_dict)
+            point = self.backbone(point)
+            # Backbone added after v1.5.0 return Point instead of feat and use DefaultSegmentorV2
+            # TODO: remove this part after make all backbone return Point only.
+            if isinstance(point, Point):
+                feat = point.feat
+            else:
+                feat = point
 
-        base_seg_logits = self.seg_head(feat)
-        novel_seg_logits = self.novel_seg_head(feat)
-        seg_logits = torch.cat([base_seg_logits, novel_seg_logits], dim=1)
+            base_seg_logits = self.seg_head(feat)
+            decorr_loss = None
+            if self.mlp_hidden:
+                novel_seg_logits = self.novel_mlp(
+                    feat.float()
+                ).to(feat.dtype)
+            elif self.cross_layers:
+                ln0, projs = self._cross_projs(feat)
+                novel_in = torch.cat([ln0] + projs, dim=1).to(feat.dtype)
+                novel_seg_logits = self.novel_seg_head(novel_in)
+                if self.base_cross:
+                    base_seg_logits = base_seg_logits + self.base_cross_head(
+                        torch.cat(projs, dim=1).to(feat.dtype)
+                    )
+                if self.training and self.decorr_weight > 0:
+                    decorr_loss = self._decorr(ln0, projs)
+            else:
+                novel_seg_logits = self.novel_seg_head(feat)
+            seg_logits = torch.cat([base_seg_logits, novel_seg_logits], dim=1)
+        finally:
+            # 必须及时清掉：缓存的中间张量带 grad_fn，留着会跨 iter 泄漏显存
+            self._cr.clear()
 
         # train
         if self.training:
-            return dict(seg_logits=seg_logits)
+            out = dict(seg_logits=seg_logits)
+            if decorr_loss is not None:
+                out["decorr_loss"] = decorr_loss
+            return out
         # eval
         elif "segment" in input_dict.keys():
             loss = self.criteria(seg_logits, input_dict["segment"])
@@ -128,7 +285,6 @@ class RegisTrainSegmentor(nn.Module):
         # test
         else:
             return dict(seg_logits=seg_logits)
-
 
 
 @MODELS.register_module()
