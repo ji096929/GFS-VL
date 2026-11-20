@@ -62,7 +62,7 @@ model = dict(
         shuffle_orders=True,
         pre_norm=True,
         enable_rpe=False,
-        enable_flash=True,
+        enable_flash=False,
         upcast_attention=False,
         upcast_softmax=False,
         cls_mode=False,
@@ -90,7 +90,7 @@ scheduler = dict(
 param_dicts = [dict(keyword="backbone", lr=0.0001)]
 
 # dataset settings
-data_root = "data/ScanNet200"
+data_root = "/data01/jh/data/scannet200_gfs"
 k_shot = 5
 regis_train_list = ["regis1"]
 
@@ -140,7 +140,7 @@ data = dict(
                 mode="train",
                 return_grid_coord=True,
             ),
-            dict(type="SphereCrop", point_max=102400, mode="random"),
+            dict(type="SphereCrop", point_max=65536, mode="random"),
             dict(type="CenterShift", apply_z=False),
             dict(type="NormalizeColor"),
             dict(type="ToTensor"),
