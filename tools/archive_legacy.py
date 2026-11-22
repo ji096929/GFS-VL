@@ -138,14 +138,14 @@ def log_index():
 
 def main():
     gfs = scan(CODE) + scan(AFF)
-    # 复制：GFS 相关的进 code_gfs/afford_diag，OCSB 的单独放 code_ocsb/
-    for sub in ("code_gfs", "code_ocsb", "afford_diag"):
+    # 只复制 GFS-VL 的；OCSB 的 113 个已分流到 experiment/3D_OCSB/legacy_scripts/code_ocsb/
+    for sub in ("code_gfs", "afford_diag"):
         os.makedirs(os.path.join(OUT, sub), exist_ok=True)
     n_cp = 0
     for r in gfs:
         if r["cat"] == "98_ocsb":
-            dst = os.path.join(OUT, "code_ocsb", r["name"])
-        elif r["path"].startswith(AFF):
+            continue
+        if r["path"].startswith(AFF):
             dst = os.path.join(OUT, "afford_diag", r["name"])
         else:
             dst = os.path.join(OUT, "code_gfs", r["name"])
@@ -172,7 +172,7 @@ def main():
     for key, title, _ in CATS:
         lines.append("- `%s` %s：**%d** 个" % (key, title, len(by.get(key, []))))
     lines.append("- `90_other` 未归类：**%d** 个" % len(by.get("90_other", [])))
-    lines.append("- `98_ocsb` 属 OCSB 主线（非 GFS-VL）：**%d** 个，应迁往 3D_OCSB 仓库" % len(by.get("98_ocsb", [])))
+    lines.append("- `98_ocsb` 属 OCSB 主线：**%d** 个，已分流到 `3D_OCSB/legacy_scripts/code_ocsb/`（本仓库不存副本）" % len(by.get("98_ocsb", [])))
     lines.append("")
     lines.append("日志：`%d` 个（`code/` %d + `data/` %d），**只建索引不复制**（见文末）。" % (
         len(logs), sum(1 for x in logs if x["dir"] == "code"),
@@ -181,10 +181,9 @@ def main():
     lines.append("---")
     lines.append("")
 
-    order = [k for k, _, _ in CATS] + ["90_other", "98_ocsb"]
+    order = [k for k, _, _ in CATS] + ["90_other"]
     titles = {k: t for k, t, _ in CATS}
     titles["90_other"] = "未归类"
-    titles["98_ocsb"] = "OCSB 主线（非 GFS-VL，待迁往 3D_OCSB）"
     for key in order:
         rows = by.get(key, [])
         if not rows:
@@ -198,6 +197,25 @@ def main():
         for r in rows:
             lines.append("| `%s` | %s | %s |" % (
                 r["name"], r["mtime"], r["note"].replace("|", "\\|")))
+        lines.append("")
+
+    # OCSB 脚本不在这里存副本，只留清单（物理副本在 3D_OCSB 仓库）
+    ocsb = by.get("98_ocsb", [])
+    if ocsb:
+        lines.append("## 98_ocsb OCSB 主线（%d，已分流到 3D_OCSB 仓库）" % len(ocsb))
+        lines.append("")
+        lines.append("这 %d 个脚本属于 3D 可供性 / 桥接 / 环实验主线，**不在本仓库保存副本**。" % len(ocsb))
+        lines.append("物理副本：`experiment/3D_OCSB/legacy_scripts/code_ocsb/`（源目录 `/data01/jh/code/`）。")
+        lines.append("")
+        lines.append("、".join("`%s`" % r["name"] for r in ocsb))
+        lines.append("")
+        io.open(os.path.join(OUT, "OCSB_SCRIPTS.md"), "w", encoding="utf-8").write(
+            "# OCSB 主线散落脚本清单\n\n"
+            "> 从 `/data01/jh/code/` 归档（2026-11-22）。物理副本在 "
+            "`experiment/3D_OCSB/legacy_scripts/code_ocsb/`。\n\n"
+            "| 脚本 | 修改日 | 说明 |\n|---|---|---|\n" +
+            "\n".join("| `%s` | %s | %s |" % (
+                r["name"], r["mtime"], r["note"].replace("|", "\\|")) for r in ocsb) + "\n")
         lines.append("")
 
     lines.append("---")
