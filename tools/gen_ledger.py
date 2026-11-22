@@ -59,6 +59,9 @@ CFG_RULES = {
     "ps_thresh": (r"^ps_thresh\s*=\s*([\d.]+)", float),
     "ai_thresh": (r"^ai_thresh\s*=\s*([\d.]+)", float),
     "novel_logit_scale": (r"^novel_logit_scale\s*=\s*([\d.]+)", float),
+    "pl_mode": (r"^pl_mode\s*=\s*['\"](\w+)['\"]", str),
+    "warmup_epochs": (r'^warmup_epochs\s*=\s*(\d+)', int),
+    "stu_tau": (r'^stu_tau\s*=\s*([\d.]+)', float),
     "scheduler": (r"scheduler = dict\(\s*\n?\s*type=['\"](\w+)['\"]", str),
     "optimizer": (r"^optimizer = dict\(type=['\"](\w+)['\"]", str),
 }
@@ -200,9 +203,11 @@ def tags_of(name, cfg):
     return t
 
 
-def workstream_of(name):
+def workstream_of(name, dataset=""):
     """主分节。优先级从高到低。"""
     n = name.lower()
+    if dataset == "scannetpp":
+        return "08_scannetpp"
     if n.startswith(("ptv3_bk", "spunet_bk", "_guard", "ontr_eval")):
         return "00_infra"
     if "sonata" in n:
@@ -226,6 +231,7 @@ WS_TITLES = {
     "05_sonata": "05 Sonata 基模替换",
     "06_diagnostics": "06 机理诊断（产物见 ASSETS）",
     "07_shot_protocol": "07 shot 数与点数上限",
+    "08_scannetpp": "08 ScanNet++（跨数据集验证）",
     "00_infra": "00 基础设施与备份",
 }
 
@@ -252,7 +258,7 @@ def collect(root):
             det = dv[-1] if dv else None
 
             ck = parse_ckpt(os.path.join(d, "model"))
-            ws = workstream_of(name)
+            ws = workstream_of(name, ds)
 
             if ws == "00_infra":
                 status = "infra"
@@ -293,10 +299,20 @@ def spec_note(cfg):
     nls = cfg.get("novel_logit_scale")
     if nls is not None and abs(nls - 1.0) > 1e-9:
         notes.append("α=%.2f" % nls)
-    ps, ai = cfg.get("ps_thresh"), cfg.get("ai_thresh")
-    if (ps is not None and abs(ps - 0.6) > 1e-9) or (ai is not None and abs(ai - 0.9) > 1e-9):
-        notes.append("PS%.2f/AI%.2f" % (ps if ps is not None else 0.6,
-                                        ai if ai is not None else 0.9))
+    # PS/AI 只在原流程（ps_ai）下生效；其他 pl_mode 下这两个字段是死参数
+    _pm_now = cfg.get("pl_mode", "ps_ai")
+    if _pm_now == "ps_ai":
+        ps, ai = cfg.get("ps_thresh"), cfg.get("ai_thresh")
+        if (ps is not None and abs(ps - 0.6) > 1e-9) or (ai is not None and abs(ai - 0.9) > 1e-9):
+            notes.append("PS%.2f/AI%.2f" % (ps if ps is not None else 0.6,
+                                            ai if ai is not None else 0.9))
+    pm = cfg.get("pl_mode")
+    if pm and pm != "ps_ai":
+        notes.append("PL:" + pm)
+    if cfg.get("warmup_epochs") is not None:
+        notes.append("warm%d" % cfg["warmup_epochs"])
+    if cfg.get("stu_tau") is not None:
+        notes.append("tau%.2f" % cfg["stu_tau"])
     w = cfg.get("init_weight")
     if w:
         parts = w.replace("\\", "/").split("/")

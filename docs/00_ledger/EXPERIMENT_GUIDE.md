@@ -25,7 +25,8 @@
 | `05_sonata` | 4 | Sonata-Small 基模替换 |
 | `07_shot_protocol` | 33 | 1-shot / 5-shot / 102400 点 |
 
-**今天新增的 9 个实验在 `scannetpp` 数据集下**，台账里能查到，但它们属于一条独立的探索线（见下文第二节）。
+**今天新增的 9 个实验全部集中在 `LEDGER.md` 的 `08 ScanNet++（跨数据集验证）` 一节**（共 16 个实验）。
+口径备注列会显示 `PL:entropy_q` / `PL:student_consensus,warm4,tau0.40` 等，非 `ps_ai` 模式下 PS/AI 参数不显示（它们是死参数）。
 
 ---
 
