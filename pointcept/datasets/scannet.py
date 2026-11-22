@@ -243,7 +243,15 @@ class ScanNet200Dataset_REGISTrain(ScanNet200Dataset_BASETrain):
         """
         Retrieve novel instance samples for a given class.
         Returns a list of data dictionaries with binary novel masks.
+
+        缓存：support 全集只有 45（1-shot）/225（5-shot）个样本，全部驻留内存
+        只占几百 MB。原实现每个训练样本都重新 np.load 该类全部场景，
+        5-shot 下每样本白读 4/5 的盘。
         """
+        if not hasattr(self, "_inst_cache"):
+            self._inst_cache = {}
+        if class_id in self._inst_cache:
+            return self._inst_cache[class_id]
         instances = []
         for path in self.regis_cls2scans[class_id]:
             class_int = int(class_id)
@@ -271,6 +279,7 @@ class ScanNet200Dataset_REGISTrain(ScanNet200Dataset_BASETrain):
                 [self.regis_lookup_array[class_int]], dtype=np.int32
             )
             instances.append(sample_data)
+        self._inst_cache[class_id] = instances
         return instances
 
     def _augment_with_novel_samples(

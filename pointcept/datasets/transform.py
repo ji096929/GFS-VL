@@ -817,6 +817,40 @@ class ElasticDistortion(object):
         )
 
     @staticmethod
+    def _trilinear_interp(noise, ax, coords):
+        """等价于 RegularGridInterpolator(ax, noise, bounds_error=False, fill_value=0)。
+
+        noise: (N0, N1, N2, C)，ax: 3 个单调 1D 网格，coords: (M, 3)。
+        纯 NumPy 向量化，避免逐点 Python 调用。
+        """
+        shape = np.array(noise.shape[:3])
+        idx = np.empty((coords.shape[0], 3), dtype=np.float64)
+        for d in range(3):
+            n = len(ax[d])
+            if n <= 1:
+                idx[:, d] = 0.0
+            else:
+                step = (ax[d][-1] - ax[d][0]) / (n - 1)
+                idx[:, d] = (coords[:, d] - ax[d][0]) / step
+        valid = np.all((idx >= 0) & (idx <= shape - 1), axis=1)
+        i0 = np.clip(np.floor(idx).astype(np.int64), 0, shape - 1)
+        i1 = np.clip(i0 + 1, 0, shape - 1)
+        f = np.clip(idx - i0, 0.0, 1.0)
+        out = np.zeros((coords.shape[0], noise.shape[3]), dtype=np.float64)
+        for dx in (0, 1):
+            wx = f[:, 0] if dx else (1.0 - f[:, 0])
+            ix = i1[:, 0] if dx else i0[:, 0]
+            for dy in (0, 1):
+                wy = f[:, 1] if dy else (1.0 - f[:, 1])
+                iy = i1[:, 1] if dy else i0[:, 1]
+                for dz in (0, 1):
+                    wz = f[:, 2] if dz else (1.0 - f[:, 2])
+                    iz = i1[:, 2] if dz else i0[:, 2]
+                    out += (wx * wy * wz)[:, None] * noise[ix, iy, iz]
+        out[~valid] = 0.0
+        return out
+
+    @staticmethod
     def elastic_distortion(coords, granularity, magnitude):
         """
         Apply elastic distortion on sparse coordinate space.
@@ -856,10 +890,9 @@ class ElasticDistortion(object):
                 noise_dim,
             )
         ]
-        interp = scipy.interpolate.RegularGridInterpolator(
-            ax, noise, bounds_error=False, fill_value=0
-        )
-        coords += interp(coords) * magnitude
+        coords += ElasticDistortion._trilinear_interp(
+            noise, ax, coords
+        ) * magnitude
         return coords
 
     def __call__(self, data_dict):

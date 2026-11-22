@@ -20,8 +20,8 @@ if __name__ == '__main__':
                 ],
                 extra_compile_args={
                     'cxx': ['-g'],
-                    'nvcc': ['-O2']
+                    'nvcc': ['-O2', '-I/data01/jh/tmp/sparsehash/include']
                 },
-                include_dirs=['/data/anaconda3/envs/pt18/include/'])
+                include_dirs=['/data01/jh/tmp/sparsehash/include', '/data01/jh/conda_envs/gfs_vl/include'])
         ],
         cmdclass={'build_ext': BuildExtension})
