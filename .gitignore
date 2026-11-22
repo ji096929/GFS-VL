@@ -23,3 +23,7 @@ pretrain_weights/
 exp/
 *.pth
 *.tar.gz
+
+# 本地备份文件（补丁前的快照，不进版本库）
+*.bak_*
+*.bak
