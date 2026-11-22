@@ -1,36 +1,57 @@
 # 散落脚本归档索引
 
-> 归档日期 **2026-11-22**。源目录 `/data01/jh/code/`（158 个 .py）与
-> `/data01/jh/afford_diag/`（54 个 .py）**都不是 git 仓库**，真正的仓库是它们的子目录
-> `code/GFS-VL/`。所以这些脚本从第一天起就在版本控制之外。
+> 归档日期 **2026-11-22**。源目录三个，**都不是 git 仓库**（真正的仓库是它们的兄弟目录
+> `code/GFS-VL/`，所以这些脚本从第一天起就在版本控制之外）：
+>
+> | 源目录 | 脚本数 | 归属 |
+> |---|---|---|
+> | `/data01/jh/code/ps_diag/` | 117 | **全部 GFS-VL**（拆解 1/2/3、4 桶、教师vs学生、ONTR、Sonata 接入） |
+> | `/data01/jh/afford_diag/` | 54 | **全部 GFS-VL**（配置生成器 + 报告补丁） |
+> | `/data01/jh/code/`（顶层） | 158 | GFS-VL 与 OCSB 混杂，逐个判定 |
 >
 > **本目录是只读副本，原处文件保留不动**（脚本内硬编码绝对路径，挪动即失效）。
 > 重新归档：`python legacy_scripts/archive_legacy.py`
 
 ## 归档统计
 
-- `01_config_gen` 配置生成器（生成 100 个实验配置的源头）：**42** 个
-- `02_upper_bound` 上限估计与 Oracle：**5** 个
-- `03_signal_gate` 门控与信号探测：**4** 个
-- `04_pseudo_label` 伪标签生成与筛选：**5** 个
-- `05_sonata` Sonata 迁移探针：**10** 个
-- `06_diagnosis` 诊断与归因：**22** 个
-- `07_reproduce` 校准与复现：**6** 个
-- `08_train_eval` 训练与评估入口：**5** 个
-- `90_other` 未归类：**0** 个
-- `98_ocsb` 属 OCSB 主线（非 GFS-VL）：**113** 个，应迁往 3D_OCSB 仓库
+共扫描 **366** 个脚本：GFS-VL **203** 个（已复制），OCSB **163** 个（只在清单里，物理副本在 `3D_OCSB/legacy_scripts/`）。
 
-日志：`303` 个（`code/` 104 + `data/` 199），**只建索引不复制**（见文末）。
+- `01_config_gen` 配置生成器（生成 100 个实验配置的源头）：**56** 个
+- `02_upper_bound` 上限估计与 Oracle：**4** 个
+- `05_sonata` Sonata 接入与探针：**19** 个
+- `03_signal_gate` 门控与信号探测：**3** 个
+- `04_pseudo_label` 伪标签生成与筛选：**18** 个
+- `06_diagnosis` 诊断与归因：**68** 个
+- `07_reproduce` 校准与复现：**6** 个
+- `08_train_eval` 训练与评估入口：**9** 个
+- `09_launchers` 启动与运维脚本（含 PL 口径证据）：**20** 个
+- `90_other` 未归类：**0** 个
+
+日志索引：`303` 个（`code/` 104 + `data/` 199），**只建索引不复制**。
 
 ---
 
-## 01_config_gen 配置生成器（生成 100 个实验配置的源头）（42）
+## 01_config_gen 配置生成器（生成 100 个实验配置的源头）（56）
 
-对应报告：docs/00_ledger/LEDGER.md（每个实验的 config 来源）
+对应报告：docs/00_ledger/LEDGER.md
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
-| `group_experiment.py` | 2026-11-18 | 三组伪标签对照：保留 PS 已接受，只考察 PS 拒绝的区域。 Group 1: support 原型直接匹配 C（放宽阈值） Group 2: 加入跨场景 B（PS 共识池），按 B 对 C 的增量排序 Group 3 |
+| `gen_offline_pl.py` | 2026-11-19 | 生成点级离线伪标签（最优方案：Sonata z>=0 提纯 + G3z 补 C 池）。 输出 /data01/jh/data/offline_pl/{split}/{scene}.npy int16[N]，值为 GFS  |
+| `gen_sw.py` | 2026-11-19 | 生成软权重伪标签：A 组全保留 + 每点权重 w=0.2+0.8*sigmoid(z)，小类保底 1.0。 |
+| `group_experiment.py` | 2026-11-18 | 三组伪标签对照：保留 PS 已接受的结果，只考察 PS 拒绝的区域。 固定条件 -------- - 候选池 C：同一批 PS 拒绝的区域（VLM 预测为 novel 类 c，但场景级 pooled cos(u_c, p |
+| `make_scpp_sym_cfg.py` | 2026-11-22 | 为 ScanNet++ 派生 sym_lovasz（跨层残差双头）配置。 从 k1/k5 的 base_lovasz 版派生，只加 4 个 RegisTrainSegmentor 参数： base_cross=True, |
+| `make_sonata_s2_linear_cfg.py` | 2026-11-22 | 从实测跑出 0.4122 的 base_lovasz_s42 存档配置派生 sonata_small 版。 改动（与 Stage-1a 严格对齐）： 1. in_channels 6 -> 9 2. backbone 加 |
+| `make_sonata_stage1_cfg.py` | 2026-11-21 | 从 scratch 版 Stage-1 config 派生 sonata_small 版。 改动（6 处）： 1. in_channels 6 -> 9 2. 加 embedding_type="linear"（对齐 s |
+| `make_sonata_stage2_cfg.py` | 2026-11-21 | 派生 Stage-2 的 sonata_small 配置（A: enc 冻结 / B: enc 解冻）。 相对 semseg-pt-v3m1-0-gfsregistrain_k1_sym_lovasz.py： 1. in |
+| `patch_det_eval.py` | 2026-11-22 | 让 shuffle_orders 只在训练时生效，eval 完全确定。 训练：保持随机（数据增强不变，与历史 bit-for-bit 一致） 评估：序列化顺序固定 → 同一 checkpoint 两次评估必须 0 误差 |
+| `patch_dsv2_freeze_enc.py` | 2026-11-21 | 把 freeze_enc 补到 DefaultSegmentorV2（Stage-1 用的是这个类）。 |
+| `patch_freeze_enc.py` | 2026-11-21 | 给 DefaultSegmentorV2 加 freeze_enc：只冻结 encoder，decoder 与读出头照常训练。 Stage-1a 用：sonata_small 的预训练 encoder 冻结，只训新初始化 |
+| `patch_head_audit.py` | 2026-11-22 | 给 one_regis_test 加分类头体检（GFS_HEAD_AUDIT=1）： 1. 静态范数：seg_head / novel_seg_head 的每类 \|\|W_c\|\| 与 bias 2. 加性偏置扫描：logi |
+| `patch_head_audit2.py` | 2026-11-22 | 诊断 A（修正版）：验证集实测尺度 + 三组互不混淆的扫描。 修正了两个数学错误： 1. base logits 含 base_cross_head（128d），不能只比 seg_head 2. \|\|W\|\|/sqrt(d |
+| `patch_pl_seed.py` | 2026-11-21 | np.savez('/data01/jh/data/online_pl_shard%s%d.npz' % (args.tag, args.shard), **agg) with open('/data01/jh/data |
+| `patch_save_cm.py` | 2026-11-22 | 给 GFSSemSegTester.one_regis_test 加可选的真实混淆矩阵保存（GFS_SAVE_CM=1）。 用途：把 Novel mIoU 的丢分拆成 4 个互斥桶 A: Novel -> Base（含  |
+| `patch_vlm_gpu.py` | 2026-11-22 | import io P = "/data01/jh/code/ps_diag/vlm_common.py" src = io.open(P, encoding="utf-8").read() if "return_gpu |
 | `add_detach.py` | 2026-11-20 | 1) 构造参数（据注释） |
 | `add_lcross.py` | 2026-11-20 | 1) 构造参数（据注释） |
 | `add_lnonly.py` | 2026-11-20 | (无说明) |
@@ -73,76 +94,141 @@
 | `patch_support2.py` | 2026-11-20 | 模块的独立价值：三档监督强度（据注释） |
 | `update_report.py` | 2026-11-20 | (无说明) |
 
-## 02_upper_bound 上限估计与 Oracle（5）
+## 02_upper_bound 上限估计与 Oracle（4）
 
-对应报告：docs/06_diagnostics/DIAGNOSIS_REPORT_2026-11-22.md §3 4桶上界
-
-| 脚本 | 修改日 | 说明 |
-|---|---|---|
-| `post_ub560.py` | 2026-11-17 | 合并全部分片的 ub560 结果：全量 λ 表 + 配对检验 + 2 折交叉验证 + 逐类/分层表。 支持两轮 λ（不同文件名前缀），会自动发现 rows 里出现的所有 λ。 |
-| `post_ub_official.py` | 2026-11-18 | 合并官方口径（min_gt=0.05，435 集）的四路上限结果。 与 post_ub560.py 的区别：rows 里的 ep 已经是全局编号（upper_bound.py 的 --min-gt 分支直接存 g_ep） |
-| `upper_bound.py` | 2026-11-18 | OCSB 第一步：外部池 U 的四种用法能带来多少上限。 四行对照，全部零训练，只改送进相关性网络的原型来源： Baseline      仅 support 的 1-shot 原型 Naive-B       supp |
-| `upper_bound_test.py` | 2026-11-17 | 第一步：用 COSeg 原生多样本接口测 B_pos / B_pos∪C_pos 的真实上限。 四行对照（全部零训练，只改支持集）： Baseline    仅 1-shot S（k_shot=1，100 个原型） Na |
-| `upper_bound_v2.py` | 2026-11-17 | 第一步（v2）：修复三个 bug 后的 B / B_pos / B_pos∪C_pos 上限测试。 修复： Bug1  每个 U 块独立 getFeatures，绝不把两个减过质心的块拼进同一个 offset Bug2  |
-
-## 03_signal_gate 门控与信号探测（4）
-
-对应报告：docs/04_ontr_frozen/DAYTIME_ONTR_REPORT*.md
+对应报告：docs/06_diagnostics/DIAGNOSIS_REPORT_2026-11-22.md §3
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
-| `gate_probe.py` | 2026-11-17 | 门控信号探针：找能区分"高基线任务"（Q4/Q5）与"低基线任务"（Q1/Q2）的无监督指标。 背景 ---- `frac_q`（预测前景占比）在 Q1–Q5 上都是 0.37–0.44，完全无法区分难度—— 所有任务都 |
-| `train_episode_gate.py` | 2026-11-17 | 任务级 EpisodeGate + 点级保 TP 融合。 为什么这样拆 ------------ 上一版把 8 维任务特征和 3 维点级特征混进一个 200 参数的 MLP，用逐点 CE 盲训。 一折只有 270 个任务 |
-| `train_omission_gate.py` | 2026-11-17 | 训练 OmissionGate：逐点决定「这一点的预测要不要采信 U」。 输入 11 维 = 3 维点级 + 8 维任务级： 点级：p0_s(i), p0_u(i), relu(p0_u(i) − p0_s(i)) 任务 |
-| `analyze_gate.py` | 2026-11-20 | (无说明) |
+| `conflict_oracle.py` | 2026-11-19 | Step 2：局部 3D 冲突区「完美仲裁」的 Oracle 上限。 对 312 val： 1. 用 top-2 概率边际定义冲突点（margin < tau） 2. 分成两类冲突：Base–Novel（top1/top |
+| `instance_bound.py` | 2026-11-18 | 细节 2：几何实例边界约束 AI 补标范围的上限对照。 两种容器边界： A. 真实实例边界  instance.npy 的每个 instance id B. 无监督边界    region_cache 里「预测 nove |
+| `oracle_cand.py` | 2026-11-19 | 候选集受限的 Oracle：仲裁器只能在 top-k 候选里选时，上限是多少。 对比三种： oracle_all   任意类（此前的 +4.5pp 就是这个） oracle_top2  仅 top-1/top-2 出现过 |
+| `oracle_cand2.py` | 2026-11-19 | 候选集受限的 Oracle：仲裁器只能在 top-k 候选里选时，上限是多少。 对比三种： oracle_all   任意类（此前的 +4.5pp 就是这个） oracle_top2  仅 top-1/top-2 出现过 |
 
-## 04_pseudo_label 伪标签生成与筛选（5）
-
-对应报告：docs/03_pseudo_label/margin_filter_experiment.md
-
-| 脚本 | 修改日 | 说明 |
-|---|---|---|
-| `post_v3.py` | 2026-11-17 | v3 后处理：合并分片、2 折 CV 选 (λ, gate_thr)、分层表、TP/FP/FN。 |
-| `purity_analysis.py` | 2026-11-17 | 离线提纯信号分析：哪些信号能把 B 的精度从 0.475 拉上去。 只读已有缓存，不训练、不改主管道。 分析对象 -------- B = U 块中初始 p0 > fg_hi 的点（基准精度约 0.475），标签取降采样 |
-| `purity_fix_probe.py` | 2026-11-17 | 验证三个根因：FPS 离群放大、反向完整管道校验、以及采样策略。 只读缓存，不改主管道。输出四组对比： 1. FPS 种子精度 vs 全体候选精度 `getMutiplePrototypes` 用 3D 坐标做 FPS  |
-| `recompute_filtered.py` | 2026-11-17 | 按 query 目标占比阈值重算 539 集 baseline / 自桥接（用已有缓存，不重跑）。 |
-| `weak_support_test.py` | 2026-11-16 | 弱标注支持集痛点摸底（零训练，val_560，仅 S->Q，不引入 U）。 五种支持集掩码（均由支持集真实标签自动生成）： full      逐点真值（上界，等同原生 COSeg） tight     真实前景点 AA |
-
-## 05_sonata Sonata 迁移探针（10）
+## 05_sonata Sonata 接入与探针（19）
 
 对应报告：docs/05_sonata/SONATA_SMALL_INTEGRATION.md
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
-| `diag_sonata2.py` | 2026-11-18 | (无说明) |
-| `dump_for_sonata.py` | 2026-11-18 | 把 357 个官方口径任务的 support/query 点云与 COSeg 的 p0 落盘， 供 sonata 环境（torch 2.5）二次读取（pointops 与 sonata 环境不兼容，必须分两步）。 每个任 |
-| `sonata_auc_merge.py` | 2026-11-18 | 合并 sonata_b_auc.py 的 8 个分片，输出全局 AUC 与头部精度。 |
-| `sonata_b_auc.py` | 2026-11-18 | 用 Sonata 独立三维特征判别 B_pos / B_neg。 B 的定义与 OCSB 一致：query 上 COSeg 初始预测 p0 > thresh 的点。 B_pos = B 中真值为前景，B_neg = B  |
-| `sonata_check.py` | 2026-11-18 | Sonata 环境验证（headless，不依赖 open3d 可视化）。 用本地 ScanNet block 构造点云（coord + color + 估计法向）， 跑 Sonata forward，输出逐点特征统计并 |
-| `sonata_p2_fuse.py` | 2026-11-18 | 验A + 验B(CPU 部分)：全图融合与 Sonata 自选头部纯度。 验A: 融合得分 w*z(cat_top3) + z(p0)，两折 CV 定阈值，357 集 Cumul/Arith。 纯后处理，不碰 GPU。  |
-| `sonata_p2_merge.py` | 2026-11-18 | 检查1(提纯) + 检查2(零训练分割水位) 的汇总。 检查1: 在 B={p0>0.7} 上对比 7 种打分的 AUC 与 Top-X% 精度 检查2: 6 种 Sonata 打分当零训练 1-shot 分割器，全 q |
-| `sonata_p3_merge.py` | 2026-11-18 | 检验B 汇总：原型采样空间（feat/nfeat/coord）× k 的 CV Cumul/Arith + 头部纯度。 |
-| `sonata_probe2.py` | 2026-11-18 | (无说明) |
-| `sonata_probe3.py` | 2026-11-18 | 检验B(GPU)：原型采样空间与子原型数量 k 的影响。 对 357 任务，用 Sonata cat(1232 维) 特征比较： 空间 feat  : 原始特征空间 FPS（与 p2 的 cat_multi/cat_to |
+| `build_sonata_base.py` | 2026-11-19 | 用 Sonata 池化 base 预测区的区域特征（AI 新增点的主要来源）。 与 build_sonata_region.py 完全相同的特征口径，只是输入换成 base_index （VLM 判成 12 个基类之一的 |
+| `build_sonata_region.py` | 2026-11-18 | 细节 4 第二步：用 Sonata 纯几何特征池化同一批区域（sonata 环境运行）。 输入  /data01/jh/data/region_index/regions_index_{split}_s{N}.pt 输出 |
+| `build_support_protos_sonata.py` | 2026-11-18 | Sonata 视角的 support 原型（sonata 环境运行）。 与 VLM 版 (build_support_protos.py) 完全相同的 split 与 GT 选点逻辑，只是把 特征换成 Sonata 的  |
+| `convert_sonata_ckpt.py` | 2026-11-21 | 把 sonata_small.pth 转成 GFS-VL 的 checkpoint 格式。 sonata 的 key:  embedding.* / enc.* 我们 DefaultSegmentorV2 期望: bac |
+| `dump_val_sonata_cos.py` | 2026-11-19 | 为 312 val 场景预计算逐点 Sonata 对 45 个新类原型的余弦（仲裁用）。 输出 /data01/jh/data/val_sonata_cos/{scene}_cos.npy  float16[N,45]  |
+| `sonata_1shot.py` | 2026-11-21 | 格 1 真 1-shot：冻结 Sonata 1232d 特征 + 57 类线性头。 口径（与 GFS-VL 1-shot 严格一致）： Base 12 类  : 1201 个训练场景的全部 Base GT（每场景每类最 |
+| `sonata_gate.py` | 2026-11-21 | Sonata-Small -> PTv3 权重注入 + 1 场景特征一致性验收。 gate: 同一份 point dict 喂两个模型，enc4 输出 max_err < 1e-4 才允许开训。 为什么要这个 gate： |
+| `sonata_gate2.py` | 2026-11-21 | 逐层对比 sonata 官方实现与我们的 PTv3，定位第一处数值偏离。 |
+| `sonata_gate3.py` | 2026-11-21 | 逐层对比 sonata 官方实现与我们的 PTv3，定位第一处数值偏离。 |
+| `sonata_gate4.py` | 2026-11-21 | 验证 hypothesis：enc1+ 的误差只是体素行排列不同（Z-order vs 字典序）， 用 pooling_inverse 展开回原始点顺序后两边应该逐位一致。 |
+| `sonata_lp.py` | 2026-11-21 | 格 1：Sonata 冻结特征的 57 类线性探针。 与 cut2_variants_lp.py 同口径： - 按类均匀采样，每类上限 CAP=2000 点 - 线性头（无隐藏层），AdamW(lr=1e-3, wd=5 |
+| `sonata_lp2.py` | 2026-11-21 | 逐场景前向 -> 1232 维全分辨率特征 -> 每类最多 per_scene 点。 |
+| `sonata_lp3.py` | 2026-11-21 | 返回 (N, 1232) 的 GPU 张量，全程不落 CPU。 沿 pooling_parent 链逐层 cat，最后用 base_inv 映回原始点数。 |
+| `sonata_probe.py` | 2026-11-21 | 每层 GridPooling 存 pooling_inverse，用于逐层反池化。 |
+| `sonata_proto.py` | 2026-11-21 | 纯 3D 1-shot 机理诊断：验证死结 1（1232 维无约束线性拟合过拟合）。 对照 sonata_1shot.py 的 0.1594（40 轮 AdamW + wcls 加权 + 无约束线性头）： 本脚本不改数据 |
+| `sonata_proto2.py` | 2026-11-21 | 纯 3D 1-shot 机理诊断 v2：一次前向，三个分类器，带特征缓存。 v1（sonata_proto.py）的 bug： base 线性头与 novel 余弦分支只对齐了 std，没对齐 mean。 min(12) |
+| `sonata_proto3.py` | 2026-11-21 | 可学习 L2 归一化余弦分类头。返回 (mu, sd, Wn)，Wn 已按列归一化 (D, 12)。 |
+| `sonata_rand.py` | 2026-11-21 | 排查：eval 模式下我们的模型两次前向是否完全一致（drop_path / shuffle_orders / traceable）。 |
+| `run_sonata_s2_batch.sh` | 2026-11-22 | !/bin/bash（据注释） |
 
-## 06_diagnosis 诊断与归因（22）
+## 03_signal_gate 门控与信号探测（3）
+
+对应报告：docs/04_ontr_frozen/DAYTIME_ONTR_REPORT*.md
+
+| 脚本 | 修改日 | 说明 |
+|---|---|---|
+| `analyze_gate.py` | 2026-11-20 | (无说明) |
+| `retry_gated_s7.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `retry_gated_s7_v2.sh` | 2026-11-20 | !/bin/bash（据注释） |
+
+## 04_pseudo_label 伪标签生成与筛选（18）
+
+对应报告：docs/03_pseudo_label/margin_filter_experiment.md
+
+| 脚本 | 修改日 | 说明 |
+|---|---|---|
+| `b_pool_purity.py` | 2026-11-18 | 诊断：用基类负例增量 + Sonata 跨视角，对脏 B 池（PS keep 区域）排序提纯。 对每个 novel 类 c，B 池 = PS keep 的区域（pred == c）。这批区域的 GT 精度 已经知道很低（ |
+| `build_base_cache.py` | 2026-11-18 | 缓存「VLM 预测为基类」的几何区域（pred < 12）。 为什么不是 pred == -1：GFS-VL 的 VLM 输出是 57 类 argmax，**从不输出 -1**。 -1 是 PS 后处理把 base 类和 |
+| `build_miss_cache.py` | 2026-11-18 | 缓存 VLM 漏检区（pred == -1）的几何区域特征。 region_cache 只收「预测为 novel 类」的区域，覆盖不到 PS 拒绝池之外的空白区。 这里补上 pred == -1 的部分：这些点 VLM  |
+| `build_pl_weights.py` | 2026-11-21 | 生成最终点级伪标签 + Sonata 软权重。 输入 /data01/jh/data/online_pl/{scene}.npz      ps / psai（官方在线 PS、PS+AI） /data01/jh/data |
+| `build_pp_score.py` | 2026-11-19 | 逐点 Sonata 打分：score_i = cos(f_sonata[i], proto[psai_i])，供软权重使用。 输出 /data01/jh/data/pp_score/{scene}_s.npy  floa |
+| `build_region_cache.py` | 2026-11-18 | 缓存训练场景的 VLM 预测区域特征（三组伪标签对照的底座）。 对每个训练场景： 1. vlm_forward -> 每点 512 维特征 + 预测类（GFS 空间 0-56） 2. 对每个 novel 预测类（>=12 |
+| `build_w_pp.py` | 2026-11-19 | 用【逐点】Sonata 分数生成软权重，并分 PS / AI 两组做五等分精度校验。 权重区间（按建议） PS keep : w = 0.25 + 0.75 * sigmoid(2z)      ∈ [0.25, 1.0 |
+| `build_w_simple.py` | 2026-11-19 | 把 online_pl_w 的软权重改写成「来源两级权重」：PS keep=1.0，AI/补标=0.45。 依据（实测，同一 Y_b==-1 口径）： PS keep 41.4M 点 精度 0.404 AI 新增 16. |
+| `build_w_uniform.py` | 2026-11-21 | 建「均匀权重」目录：_pl.npy 软链接自 online_pl_w，_w.npy 全 1.0。 用途：A2 = 同一份 PL（PS+AI+补标）但权重全 1，用来把 SW3 的效果拆成 ① ONLINE -> A2   |
+| `dump_base_index.py` | 2026-11-19 | 导出 base 池（pred < 12）的区域点索引，供 AI 补标写入点级伪标签。 |
+| `dump_online_pl.py` | 2026-11-21 | 逐场景 dump 官方原版在线 PS + 逐点 AI 的点级伪标签。 口径（对齐 pointcept/engines/train.py 的 target_calibrate） ---------------------- |
+| `dump_online_pl_1shot_cmp.py` | 2026-11-20 | 逐场景 dump 官方原版在线 PS + 逐点 AI 的点级伪标签。 口径（对齐 pointcept/engines/train.py 的 target_calibrate） ---------------------- |
+| `dump_online_pl_5shot.py` | 2026-11-20 | 逐场景 dump 官方原版在线 PS + 逐点 AI 的点级伪标签。 口径（对齐 pointcept/engines/train.py 的 target_calibrate） ---------------------- |
+| `dump_region_index.py` | 2026-11-18 | 细节 4 第一步：导出每个训练场景的「点级 VLM 预测 + 区域点索引」。 跨视角对照要求 Sonata 和 VLM 用**完全相同的区域边界**。区域缓存只有区域级 pred，没有点级 pred，所以这里重跑一遍 V |
+| `full_pipeline.py` | 2026-11-19 | 完整伪标签管线：统一 G_c_full 口径，一次跑完所有消融。 方案 ---- ps_full     PS keep 全部区域（原版 PS 输出） ps_ai       原版 PS + AI：对 pred==-1  |
+| `genB_full.py` | 2026-11-19 | 把 AI 在 base 池的补标写入 B 组点级伪标签。 |
+| `per_class_pts.py` | 2026-11-19 | 逐类点数对比：A 的离线伪标签 vs PS keep vs base 池 AI 补标。 输出 ps_full[45]    PS keep 全部区域展开的点数（按 VLM 判的类计） base_ai[45]    bas |
+| `pseudo_miou.py` | 2026-11-18 | 伪标签层的 mIoU-N：原版 PS keep vs B 池提纯 vs + 补标。 支持两套打分视角 ---------------- vlm    原型/桥梁池相似度 - 基类负例（512 维 CLIP 空间） son |
+
+## 06_diagnosis 诊断与归因（68）
 
 对应报告：docs/06_diagnostics/DIAGNOSIS_REPORT_2026-11-22.md
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
-| `audit_merge.py` | 2026-11-18 | 审计汇总：逐 ckpt 指标 + 两折盲选轮次。 |
-| `audit_stage2.py` | 2026-11-18 | Stage II 审计：ep0 基线、逐 checkpoint 逐集指标（TP/FP/FN、B 池纯度/AUC）。 |
-| `audit_u_infer.py` | 2026-11-18 | Exp1-low ep1 的推理时 U 消融 + 训练前后 U 上的桥梁质量。 对 357 个任务，Exp1-low ep1 模型分别在： official  官方 forward，不传 U（= 之前 0.4153 的口 |
-| `audit_u_merge.py` | 2026-11-18 | U 推理消融汇总：4 种推理模式的 Cumul/Arith + U 块上的 B 池质量。 |
-| `probe_agg.py` | 2026-11-18 | (无说明) |
-| `probe_calib.py` | 2026-11-17 | 只做前景比例校准能把整场景 IoU 提到多少。 对 baseline 的概率 p1 取 top-k 分位作为预测，k 分别用： s_ratio   support 的前景占比（无标签可得） oracle    query |
-| `probe_fp.py` | 2026-11-18 | (无说明) |
-| `probe_gap.py` | 2026-11-18 | (无说明) |
-| `probe_gap2.py` | 2026-11-18 | 修正版对拍：官方 forward（fp16/fp32）vs predict_agg（fp32）。 上次 probe 的错误：把 dump 的 s_lab（0/1 二值）当成 21 类 id 传给 `(label == c |
-| `probe_layers.py` | 2026-11-18 | (无说明) |
-| `probe_retrieval.py` | 2026-11-18 | 免训练对照：块级检索命中率 + 配对分割收益。 每个任务固定同一批 S/Q、同一 500 块候选池、同一权重，只允许送 3 块： random3    从池里随机抽 3 块 retrieve3  用 S 的 fg/bg  |
-| `probe_retrieval_merge.py` | 2026-11-18 | 检索对照汇总：命中率 + Cumul mIoU。 |
+| `ai_auc.py` | 2026-11-19 | 测 Sonata 原型分在【AI 新增点】上的逐类宏平均 AUC（对应你问的 0.83 是否真实）。 |
+| `arbiter_eval.py` | 2026-11-19 | Step 3：纯 3D 局部仲裁器（novel–novel），一次扫多组 alpha/margin。 对每个冲突连通分量（margin<tau 且 top1/top2 都是新类且不同）： 候选类 = 分量内 top-1/ |
+| `arbiter_pt.py` | 2026-11-19 | 逐点仲裁：在冲突点上，用「逐点」候选分数选类，而不是分量均值。 对每个点 p（属于 novel–novel 冲突分量）： 候选 = 该点 top-k 的类 score_c(p) = alpha * prob_c(p) + |
+| `arbiter_v2.py` | 2026-11-19 | 仲裁器 v2（novel–novel）：候选 top-k，多种聚合方式，一次扫完。 对每个冲突分量（margin<tau，top1/top2 同为不同新类）： 候选类 = 分量内 top-k 出现过的类 分数 = alp |
+| `arbiter_v3.py` | 2026-11-19 | 仲裁器 v2（novel–novel）：候选 top-k，多种聚合方式，一次扫完。 对每个冲突分量（margin<tau，top1/top2 同为不同新类）： 候选类 = 分量内 top-k 出现过的类 分数 = alp |
+| `arbiter_v4.py` | 2026-11-19 | 仲裁器 v4：跨类比较前先做【按类 z-score 校准】。 之前的 argmax 直接比原始 cos，被类级偏置主导（某些类原型天生余弦高）。 这里先用全部 val 点统计每类的 mean/std，把 cos 变成类内 |
+| `arbiter_v5.py` | 2026-11-19 | 仲裁器 v4：跨类比较前先做【按类 z-score 校准】。 之前的 argmax 直接比原始 cos，被类级偏置主导（某些类原型天生余弦高）。 这里先用全部 val 点统计每类的 mean/std，把 cos 变成类内 |
+| `audit_arbiter.py` | 2026-11-19 | 逐分量审计：Sonata argmax 在「可改判分量」上到底有多准。 对 τ=0.2、novel–novel 冲突： correct_now   = 分量当前多数预测 == GT 多数类 switchable    = |
+| `audit_arbiter2.py` | 2026-11-19 | 逐分量审计：Sonata argmax 在「可改判分量」上到底有多准。 对 τ=0.2、novel–novel 冲突： correct_now   = 分量当前多数预测 == GT 多数类 switchable    = |
+| `base_experiment.py` | 2026-11-19 | 第 2 点：在「VLM 判成基类」的漏检区上重跑三组补标对照。 候选池来自 base_cache：VLM 把这些点判成了 12 个基类之一（pred < 12）， 所以它们既不在 PS 拒绝池里，也没有 novel 标签 |
+| `bd_transfer.py` | 2026-11-19 | 百度网盘分享：按场景只转存 scans/ 子目录。 接口要点（2026-11 实测） * 分享页改版，baidupcs-py 的 shared_paths() 解析不到 yunData.setData * share/l |
+| `bridge_holdout.py` | 2026-11-19 | 留出集检验：提纯多实例原型 P~ 是否比 1-shot 支持原型 p 更能排序区域。 做法 用奇数场景的区域（按支持原型挑 top10%）构造 P~_c， 在偶数场景的区域上比较 AUC（正例 = GT 该类占比 >=  |
+| `bridge_precheck.py` | 2026-11-19 | 零 GPU 预检：用缓存区域特征构造「提纯多实例原型」，看与 1-shot 支持原型差多少。 |
+| `cm_bucket_analysis.py` | 2026-11-22 | import sys import numpy as np NC_BASE = 12 def main(): path = sys.argv[1] nr_base = int(sys.argv[2]) if len(sy |
+| `cmp_classes.py` | 2026-11-19 | (无说明) |
+| `cmp_online_pl.py` | 2026-11-19 | Task 1 汇总：官方在线 PS / PS+逐点 AI / 我们 A 的逐类点数与伪标签质量。 全部用同一口径：只统计写入 Y_b == -1 的点（训练时 dataset 唯一会填的位置）。 输入 /data01/j |
+| `cut2_analyze.py` | 2026-11-19 | Cut 2 汇总：合并各分片 CM，打印分层指标总表。 用法: python cut2_analyze.py [tag ...] |
+| `cut2_audit1.py` | 2026-11-19 | 疑点 1a：各层特征在 val 上的 L2 范数量级。 判据：若 dec3/enc4 的范数是 dec0 的 3 倍以上，multi 的裸 concat 就会被高维粗糙层主导。 |
+| `cut2_audit2.py` | 2026-11-19 | 疑点 2：ptv3_bk 原生 12 类 seg_head 在 312 val 上的 mIoU-B。 用来交叉验证「S1 dec0 Linear Probe 只有 0.5136」是不是均匀采样造成的。 S1 的 nove |
+| `cut2_blindA.py` | 2026-11-19 | 盲区 A：δ 反向扫描（给新类 logits 加 δ，δ<0 = 压新类/抬基类）。 用 val_logits 的 top-5：跨类型 argmax 只需比较「最高的 base」与「最高的 novel」， 这两者必在 t |
+| `cut2_blindB.py` | 2026-11-19 | 盲区 B：Cut 1 父子类吞噬体检 + 全点无约束 Top-k Oracle。 用法: python cut2_blindB.py [pred_dir] pred_dir 默认 /data01/jh/data/val_ |
+| `cut2_common.py` | 2026-11-21 | Cut 2 公共库：PTv3 逐层特征提取（精确 unpool 映射）+ 模型/数据构建。 层位与分辨率编码（start_level）： enc4  1/16 -> 4 dec3  1/8  -> 3 dec2  1/4 |
+| `cut2_cosine.py` | 2026-11-19 | 盲区 A 补：Cosine Classifier / 权重归一化对 Base→Novel 假阳性的影响。 用法: python cut2_cosine.py <mode> [shard] [shards] mode =  |
+| `cut2_eval.py` | 2026-11-19 | Cut 2 阶段三：用训练好的 Linear Probe 在 312 val 上流式累计混淆矩阵。 用法: python cut2_eval.py <S1\|S2> [shard] [shards] 输出 /data01/ |
+| `cut2_extract.py` | 2026-11-21 | Cut 2 阶段一：从指定 checkpoint 提取分层特征。 用法: python cut2_extract.py <S1\|S2> train   [shard] [shards] python cut2_extra |
+| `cut2_oneshot.py` | 2026-11-19 | Cut 2 阶段三补：1-shot 支持原型 Probe（免训练）。 对每层： proto[c] = L2normalize(mean(feat[gt==c]))，c 取 45 个新类 在 312 val 的新类真值点上 |
+| `cut2_train.py` | 2026-11-19 | Cut 2 阶段二：训练 6 组 Linear Probe，并计算 eRank / Base 子空间能量。 用法: python cut2_train.py <S1\|S2> [epochs] 6 组 probe: enc |
+| `cut2_variants.py` | 2026-11-19 | 疑点 1b/1c：多读出变体 × 采样方式，312 val 一次评估。 变体： dec0_u       dec0 + 均匀采样（每类 2000） dec0_n       dec0 + 自然分布采样 dec0_lp   |
+| `cut2_variants_lp.py` | 2026-11-21 | 补测：log-prior 校准对 multi / dec012 / dec01 是否同样有效。 只跑 shard0（104 场景），与 cut2_variants.py 的 dec0_u/dec0_lp 同口径对比。 输 |
+| `cut2_verify.py` | 2026-11-19 | Cut 2 前置验证：确认 5 层 hook 与 pooling_inverse 链完全正确。 判据（全部必须通过）： V1  enc4/dec3/dec2/dec1/dec0 特征长度 == 对应层级的点数 V2  用 |
+| `fisher_vlm512.py` | 2026-11-22 | 拆解 2 第一把尺子：512d VLM 特征的 Fisher 判别比 + 三阶段逐类明细。 输入 pl_tristage_audit_s0.npz（含 feat_sum/feat_sq/feat_cnt 与三阶段混淆矩阵 |
+| `miss_experiment.py` | 2026-11-18 | 第 2 点：在真实待填充区（pred == -1 的漏检区）上重跑三组补标对照。 与 group_experiment 的区别 -------------------------- - 候选池来自 miss_cache： |
+| `obj_diag.py` | 2026-11-19 | 把伪标签误差拆成「objectness（是不是物体）」与「class identity（是不是该类）」。 对每个 PL 点，用逐点 Sonata 分数（= cos 到其被赋类原型）做两个二分类： objectness:  |
+| `ontr_step_a.py` | 2026-11-21 | Track 2 Step A：预计算正交零空间基与 dec2 目标 PCA 基。 产出 /data01/jh/data/ontr_basis.pt Q_perp (64, 52)   基类分类头 W_b 的精确正交零空间 |
+| `ontr_step_b.py` | 2026-11-21 | 特征的有效秩：exp(谱熵)，x 为 (N, D)。 |
+| `ontr_step_b_v2.py` | 2026-11-21 | 特征的有效秩：exp(谱熵)，x 为 (N, D)。 |
+| `ontr_step_c.py` | 2026-11-21 | Track 2 Step C 体检：Base mIoU + dec0 的 eRank（新类点上）。 用法 python ontr_step_c.py --weight <ckpt> --tag <名字> 口径（与训练 v |
+| `perpoint_check.py` | 2026-11-19 | 逐点 Sonata 打分 + 假阳性成分分析（抽样 30 场景）。 回答两个问题： 1. PS / AI 的假阳性点里，真值分别是 base(0-11) / novel(12-56) / ignore(-1) 各占多少  |
+| `pl_tristage_audit.py` | 2026-11-22 | 全场景统计：把 PL>=12 的预测与该点 GT 比较；gfs==-1 的点若被预测成 novel 就是 FP。 |
+| `pl_tristage_audit_gpu.py` | 2026-11-22 | 拆解 1+2（全 GPU 版）：VLM 伪标签三阶段全场景体检 + 512d 特征 Fisher 矩。 相比 CPU 版的关键改动： - vlm_forward(return_gpu=True)，特征全程不落 CPU（避 |
+| `probe_omission.py` | 2026-11-20 | Omission Recovery probe. Question: for points that RegionPLC's PS missed (ps == -1) but whose true GT is a nov |
+| `probe_rlp_auc.py` | 2026-11-20 | RegionPLC baseline AUC for the omission-recovery probe. Same B/C/Neg split as probe_omission.py, but similarit |
+| `proto_separability.py` | 2026-11-22 | 返回每层的原型、半径、对每对的 Fisher 比与自测混淆率。 |
+| `ps_diag.py` | 2026-11-18 | PS/AI diagnosis for GFS-VL (RegionPLC 636 + ScanNet200). Reproduces GFS-VL's Pseudo-label Selection (PS) and A |
+| `task2_offline.py` | 2026-11-19 | Task 2：在【真实在线 PS+AI 底盘】上验证两个改动。 (a) Sonata + D_base 对真实底盘写入点的排序区分度 - 用 PS 保留区域（kept）做评估集：纯度 = hist_n[c] / (siz |
+| `task2b_auc.py` | 2026-11-19 | 补充：Sonata+D_base 的【逐类】区分度（宏平均 AUC）与 G3z 逐类精度。 |
+| `task2c_scores.py` | 2026-11-19 | 对比多种候选分数在 keep 区域上的逐类 AUC（判断软权重是否可行）。 |
+| `task2d_g3z_proto.py` | 2026-11-19 | 用 Sonata 原型相似度（而非桥梁池）做 G3z 选点，对比 mIoU-N。 |
+| `teacher_vs_student.py` | 2026-11-22 | 遍历 1201 训练场景，用 VLM 伪标签 vs GT 累积 57x57 矩阵。 |
+| `val_cls_count.py` | 2026-11-19 | 统计 312 val 场景里每个 novel 类的 GT 点数，并和逐类 IoU 对照。 目的：判断 A/B 相对基线的跌幅是集中在「点极少的小类」（IoU 不稳定/噪声） 还是「点不少的类」（真实退化）。 |
+| `val_cm_probe.py` | 2026-11-19 | 零训练剖析：312 val 混淆矩阵拆分 + 基类 logit 偏置 δ 扫描。 用法: python val_cm_probe.py <exp_config.py> [weight] 输出 ① 45 个新类真值点的错误 |
+| `val_cm_probe2.py` | 2026-11-19 | 零训练剖析 v2：按 tester 的【分片推理】跑 312 val，输出混淆矩阵拆分 + δ 扫描。 用法: python val_cm_probe2.py <exp_config.py> <weight.pth> |
+| `val_dump_logits.py` | 2026-11-19 | Step 1：保存 312 val 的逐点 top-5 概率/索引/预测/GT，供冲突区仲裁分析。 按 tester 的分片推理；输出 /data01/jh/data/val_logits/{scene}.npz top |
+| `val_dump_logits2.py` | 2026-11-19 | Step 1：保存 312 val 的逐点 top-5 概率/索引/预测/GT（支持分片）。 用法: python val_dump_logits2.py <config.py> <weight.pth> [out_di |
+| `val_dump_logits3.py` | 2026-11-19 | Step 1：保存 312 val 的逐点 top-5 概率/索引/预测/GT（支持分片）。 用法: python val_dump_logits2.py <config.py> <weight.pth> [out_di |
+| `vlm_common.py` | 2026-11-22 | Shared setup for the GFS-VL 3D VLM (RegionPLC, sparseunet32_636). Builds the text embedding (CLIP ViT-B/32, ls |
+| `vlm_val_probe.py` | 2026-11-22 | 90 秒摸底：冻结 VLM_3D 在 312 个验证场景上的真实 Novel mIoU。 目的：区分两种情况 情况 1（val Novel >= 0.40）：信息在教师里，损耗在 PS+AI 硬标签压缩 + Stage- |
 | `cmp_norms.py` | 2026-11-20 | (无说明) |
 | `pr_analysis.py` | 2026-11-20 | 从 val.pth 的逐场景 inter/union/target 计算每类 Precision / Recall / IoU。 定义（与 intersection_and_union 一致）： I = TP, targ |
 | `pr_compare.py` | 2026-11-20 | (无说明) |
@@ -153,6 +239,7 @@
 | `xl_compare.py` | 2026-11-20 | 解析 4 个 run 的逐类 IoU，输出 Base/Novel/HM 与逐类 delta。 用法: python xl_compare.py [log_dir] |
 | `xl_erank.py` | 2026-11-21 | 训练后诊断：读出支路 eRank + novel_head 三切片范数占比。 用法: python xl_erank.py <run> [shard shards] run: base_s42 / xl_s42 / ba |
 | `xl_erank_merge.py` | 2026-11-20 | 合并 eRank 分片并计算有效秩。 |
+| `run_ontr_stage2.sh` | 2026-11-21 | !/bin/bash（据注释） |
 
 ## 07_reproduce 校准与复现（6）
 
@@ -160,144 +247,62 @@
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
-| `check_pair.py` | 2026-11-17 | 对拍：同一 episode 上，官方 COSeg.forward 与我们复刻的 predict_agg 是否给出相同 IoU。 |
-| `repro_probe.py` | 2026-11-17 | 定位 Baseline 的随机源：同进程连跑 3 次，打印各阶段校验和。 |
-| `repro_probe2.py` | 2026-11-17 | 验证 per-episode 种子锁死后，跨进程 Baseline 是否一致。 用法：起两个独立进程（不同卡），比较同一 --gps 的输出。 |
-| `verify_replicate.py` | 2026-11-17 | 验证 predict_agg 是否精确复刻 COSeg 原生 forward 的后半段。 原生：model(support, query, epoch=100) -> final_pred [1, 2, N_raw] 复 |
+| `check_weights.py` | 2026-11-19 | 校验软权重：权重大小是否与伪标签真实精度单调相关。 |
+| `flash_diff_test.py` | 2026-11-22 | 对比 enable_flash=True/False 的数值差异（同权重、同数据、同 patch 配置）。 关键：PTv3 在 enable_flash=False 时会把 patch_size 动态设为 min(bat |
+| `gpu_watch.py` | 2026-11-19 | GPU 占用记录器：每 60s 追加一行，用于摸清 lwh 等共享用户的周期性评估峰值。 输出格式（制表符分隔） 时间 \| g0_used/g0_util ... g7_used/g7_util \| pid:user:m |
+| `retry_err.py` | 2026-11-19 | 重试 transfer 超时（errno=4）的场景。 只处理 bd_transfer.log 里 ERR 行对应的场景：重新取 scans 的 fs_id， transfer 到 /scannetpp/<scene>（ |
 | `verify_cross.py` | 2026-11-19 | 启动前验证：cross_layers 分支的 shape / 尺度 / 参数分组 / 梯度 / 缓存。 |
 | `verify_variants.py` | 2026-11-20 | Pre-flight 校验：mlp / sym / gated 三种分支。 |
 
-## 08_train_eval 训练与评估入口（5）
+## 08_train_eval 训练与评估入口（9）
 
 对应报告：docs/07_shot_protocol/OVERNIGHT_ICCV_REPORT.md
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
+| `build_support_protos.py` | 2026-11-18 | 计算 10 套 1-shot 划分的 support 原型（45 个 novel 类，512 维）。 带场景特征缓存，避免同一场景在多个 split 上重复前向。 |
+| `run_sw3.sh` | 2026-11-19 | !/bin/bash（据注释） |
+| `run_sw_s42.sh` | 2026-11-19 | !/bin/bash（据注释） |
+| `train_guard.sh` | 2026-11-19 | !/bin/bash（据注释） |
+| `run_5split.sh` | 2026-11-21 | !/bin/bash（据注释） |
+| `run_scpp_batch.sh` | 2026-11-22 | !/bin/bash（据注释） |
+| `run_support_base.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `run_xl.sh` | 2026-11-19 | !/bin/bash（据注释） |
 | `assemble_scannet200.py` | 2026-11-18 | 从服务器现有 ply + 本地传来的 segment200 组装 pointcept 格式的 ScanNet200。 点序已验证：本地 coord.npy 与服务器 ply 顶点逐点一致（81,369 点，首点相同）。  |
-| `build_u_cache.py` | 2026-11-18 | 预计算 500 个候选块的 COSeg 降采样特征（训练池随机采，不按标签筛）。 候选池固定 seed=0，所有任务共用；与测试的 312 个 val 场景零重叠。 |
-| `official_compare.py` | 2026-11-18 | 官方 5% 口径终极对比（纯后处理，不占 GPU）。 把四个来源的逐集 TP/FP/FN 统一到全局 episode 编号，再按官方 get_class2scans 的阈值过滤，重算所有方案的 Cumul / Arith |
-| `run_official_eval.py` | 2026-11-17 | 用 fake_tp 垫片跑官方 main_fs.py（官方脚本没有这个 shim，会撞 torch_points3d 的依赖链）。 |
-| `train_su.py` | 2026-11-18 | Stage II 训练：Exp 0（纯 S->Q 微调）与 Exp 1（S+U 可微软原型）。 用法: CUDA_VISIBLE_DEVICES=2 python train_su.py --mode s  --epoc |
 
-## 98_ocsb OCSB 主线（非 GFS-VL，待迁往 3D_OCSB）（113）
+## 09_launchers 启动与运维脚本（含 PL 口径证据）（20）
 
-对应报告：—
+对应报告：docs/legacy/SESSION_STATE.md（**含 GFS_OFFLINE_PL 口径证据**）
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
-| `adaptive_signal.py` | 2026-11-05 | Task 2e: per-class adaptive signal selection. For each novel class, pick the signal with the highest per-episo |
-| `analyze_cal.py` | 2026-11-05 | Task 10: does margin-space calibration / a threshold-free soft gate beat the raw end-to-end fusion? All compar |
-| `analyze_diag.py` | 2026-11-05 | Summarize diag_bc.py records: overall + per-class tables. |
-| `analyze_full.py` | 2026-11-05 | Task 2/3 on the full pool: old 502 (v4/v5) + new full-field run. |
-| `analyze_overnight.py` | 2026-11-05 | Overnight report analysis: Task 1/2/3/4 tables. |
-| `analyze_paired.py` | 2026-11-05 | Paired analysis over the fixed manifest. All runs consume the same manifest prefix, so episode i is the same ( |
-| `analyze_task6.py` | 2026-11-05 | Task 6 analysis: drop-off anatomy, asymmetric fusion, RSV gating, K sweep. Usage: python analyze_task6.py <cro |
-| `analyze_toplk_oracle.py` | 2026-11-05 | Top-K bridge truncation + Oracle injection analysis. |
-| `auc_signals.py` | 2026-11-05 | AUC of candidate negative-control signals: B_pos vs B_neg per episode. |
-| `block_coord_probe.py` | 2026-11-17 | 隔离坐标平移：同样 1m block、同样 voxel、同样原型流程，只改最后一步坐标处理。 center  coord -= (min+max)/2   ← prepare_block 现行做法，范围 [-0.5,0. |
-| `build_intra_cache.py` | 2026-11-13 | 补齐 intra-query 方向需要的字段。 原缓存只有 downsampled 的 q_h/q_margin/q_coord，缺少： q_seg_full / q_rgb_full   voxel 后原始点的超点 i |
-| `build_ocsb_cache.py` | 2026-11-12 | 提取 3D-OCSB 的冻结特征缓存。 因为 Stage I 的主干 F0 和初始预测器 f0 完全冻结，每个 episode 只需要前向 一次并把下列量存盘，之后所有公式（1)-(19）、五项自检、五步消融都在缓存上  |
-| `build_train2k.py` | 2026-11-13 | 从 train split 的 blocks 采 2000 个 base 类任务并提取缓存。 严格场景隔离：support / query / U 三者场景互不重叠。 输出 /data01/jh/data/ocsb_tr |
-| `check.py` | 2026-11-17 | OCSB 管道的三种校验，合并成一个入口。 python check.py replicate                 # 复刻的 predict_agg vs COSeg 原生 forward python c |
-| `check_coseg.py` | 2026-11-05 | Minimal COSeg forward check: load weights, run one support+query episode. |
-| `clip_vit.py` | 2026-11-05 | Minimal CLIP ViT-B/16 vision tower, rebuilt from a TorchScript archive. The server's CLIP checkpoints are Torc |
-| `cohens_topk.py` | 2026-11-05 | Task 2 completion: Cohen's d + per-signal Top-K B precision. |
-| `collect_train_blocks.py` | 2026-11-13 | 并行收集 ScanNet train split 的场景 npy（第 8 列保留 seg id）。 用法：--shard 0 --nshard 4 输出：/data01/jh/data/scannet_train_v2/ |
-| `combo_signals.py` | 2026-11-05 | Task 2c: linear combination search over orthogonal signals. Per-bridge signals are combined after per-episode  |
-| `compare_u_mode.py` | 2026-11-05 | Compare cross-scene vs same-scene U without relying on episode pairing. Pairing turned out to be impossible: n |
-| `control_u_confound.py` | 2026-11-05 | Control for the difficulty confound in the cross/same-scene comparison. same_scene happens to have an easier e |
-| `coseg_mem_probe.py` | 2026-11-18 | 实测 COSeg 训练前向+反向的显存与耗时。 对比： src=block   1m block（真实训练输入，voxel 后 2-5k 点） src=scene   整场景采样到 20480 点（输入上限） freez |
-| `coseg_su.py` | 2026-11-18 | COSeg + S+U 可微软原型（Stage II Exp 1）。 forward_su 相对官方 forward 只改三处： 1. 额外对 U 做一次 getFeatures（U 无标签，gt 传全 0，不做 bas |
-| `cross_block_probe.py` | 2026-11-17 | 跨块互验证：把"考官"换成没参与选出候选点的独立块。 为什么需要 ---------- `proto_B -> S` 与 `S -> B` 用的是同一组余弦矩阵，只是聚合方向不同， 信息高度重叠（实测 AUC 0.626 |
-| `death_test.py` | 2026-11-13 | 生死线检验：Q_bg_pred 中按桥梁得分选 Top-K%，看 Precision 能否超过 I0。 严格阈值：p > I0 = 37.44%（不是 I0/(1+I0) = 27.24%）。 同时报告相对 27.24% |
-| `diag_bc.py` | 2026-11-05 | Step-1 diagnostic for 3D-OCSB premise. Frozen COSeg, 1-way 1-shot ScanNet val episodes. No training. For each  |
-| `diag_cache.py` | 2026-11-12 | 检查缓存质量与 OCSB 中间量的分布。 在已缓存的 episode 上跑一次前向，统计 B/C 规模、eta 风险、V 正负、 w_C 恢复比例，以及负对照三个来源的实际数量。用来确认「w_C 全零导致 L_seg 无 |
-| `diag_cmc.py` | 2026-11-12 | 诊断 delta_corr 是否对准真实漏检点。 分组：TP（margin>0 且真前景）、FN（margin<=0 且真前景，即漏检）、 FP（margin>0 且真背景）、TN（margin<=0 且真背景）。 如果 |
-| `diag_signals.py` | 2026-11-13 | 四种候选信号在 TP/FN/FP/TN 上的四分组诊断。 S1  旧公式：Σ ŵ_R relu(z_R·z_q - c0)          （复现 TN 倒置） S2  纯加权相似度：Σ ŵ_R (z_R·z_q) S |
-| `diag_step2.py` | 2026-11-12 | 诊断式(15) 融合后掉点的原因。 打印 s_s（COSeg margin）、超点相似度 sim/τ、ell 的分布，以及预测正例率 与真值正例率的对比。重点看 sim 与 s_s 是否量纲一致。 |
-| `eval_baseline.py` | 2026-11-05 | Baseline query mIoU for COSeg 1-way 1-shot on ScanNet val. Used as the sanity gate from the task spec: make su |
-| `export_counter_by_block.py` | 2026-11-20 | 按 U 块拆分导出 counter_007 的三个房间：rgb / gt / tag 三版。 tag 复现 ring2_export_ply 的超点级判定： B_pos 绿 (0,255,0)  B_neg 红 (255 |
-| `export_counter_gt.py` | 2026-11-20 | 导出 counter_007 的 U 池真值上色版：counter 品红，其余灰/暗原始色。 |
-| `export_ply2.py` | 2026-11-16 | 导出改进版 PLY： 1. 每个 U block 单独一个文件（原始 RGB + 区域标注） 2. counter_007 / cabinet_009 额外导出完整房间（gamma 提亮 + 切块高亮） 输出：/data |
-| `export_room_raw.py` | 2026-11-20 | 用原始 vh_clean_2.ply（164k 点）导出 scene0606_00 的 gt / tag。 原始 ply 是 binary_little_endian，顶点 x,y,z float32 + rgba uc |
-| `export_room_scene.py` | 2026-11-20 | 导出 scene0606_00 整房间的 rgb / gt / tag 三版。 tag 来自该房间内 block_3 的 episode 区域判定，按坐标匹配映射回整房间： 绿 B_pos / 红 B_neg / 黄 C |
-| `extract_orth_feats.py` | 2026-11-05 | Phase 1: build an orthogonal visual feature f_orth with a frozen 2D encoder. Server has no CLIP/DINOv2 and no  |
-| `fake_tp.py` | 2026-11-05 | Compatibility shim: provide torch_points_kernels via pointops2. COSeg only uses tp.ball_query in getFeatures() |
-| `local_geometry.py` | 2026-11-05 | Task 2g: superpoint local geometry (curvature / planarity) as a signal. Reads the block npy files directly (co |
-| `make_class2scans.py` | 2026-11-18 | 按官方 get_class2scans 的逻辑生成 class2scans.pkl。 官方阈值：某类点数 > max(该文件总点数 * 5%, 100) 才把这个文件计入该类。 scene 级和 block 级都用同一段 |
-| `make_manifest.py` | 2026-11-05 | Build a fixed paired episode manifest. Every experiment (baseline, zero-shot 2C, Stage II validation) runs on  |
-| `ocsb_advanced.py` | 2026-11-17 | 第二步：OASB + CSR 的零训练实现（五步消融）。 对应 `3D OCSB原始idea.md` 的式 (7)(8)(9)(10)(12)(13)(15)。 五步 ---- Step 1  Baseline      |
-| `ocsb_cmc.py` | 2026-11-13 | OCSB-CMC：在 ocsb_faithful 之上的三个结构性修正。 Fix 1  式(5) 的 s_c^0 从"单均值原型"换成"支持集局部多子原型的 Top-M 均值"， 避免椅背/椅腿这类部件差异被误判成 Δ> |
-| `ocsb_core.py` | 2026-11-17 | OCSB 第一步的共用底座：种子、episode 构造、特征提取、原型、相关性聚合。 这里的所有函数都与 `COSeg.forward` 的后半段逐行对应： getFeatures -> 前景/背景原型 -> 余弦相关性 |
-| `ocsb_faithful.py` | 2026-11-12 | 3D-OCSB 的忠实实现：导师文档 Method V1 式 (1)-(19)。 只保留三处最小修正，其余严格按文档： C1  式(1)  W_phi 单位阵初始化 + \|\|W-I\|\|_F^2 正则，保证第 0 步与冻结 |
-| `ocsb_v3.py` | 2026-11-17 | 三层遗漏条件化选择性桥接（v3）。 针对 v2 的三个方法学错误做的修正： 1. **第一层：U 内核心提纯 + 同块邻接吸收** 不再把 `p0 > 0.7` 的全部点直接当原型。按 `R_s = sim(f, S_f |
-| `or_gate2.py` | 2026-11-13 | or_gate v2：B_max 与 oracle 在 val_560 上的 Arith + Cumul。 |
-| `perclass_overnight.py` | 2026-11-05 | Per-class breakdown of the overnight experiments (offline). |
-| `phase1_smooth.py` | 2026-11-13 | Phase 1：查询集超点内部一致性平滑 + 2 折交叉验证。 ell(i) = (1-alpha) * q_margin(i) + alpha * m(R_i) - theta m(R) 支持 mean / media |
-| `phase2_adjacent.py` | 2026-11-13 | Phase 2：查询集内部三维邻接约束下的自桥接 A -> B_Q -> C_Q。 B_Q   查询集内 m(R) >= tau_seed 的高置信种子 C_Q   初始背景 (m(R) < tau_seed 且 > - |
-| `phase2_clip.py` | 2026-11-05 | Phase 2: does the CLIP referee break the 0.610 AUC ceiling? Two variants are recorded: clip_*_r -- raw CLIP fe |
-| `phase2_full.py` | 2026-11-13 | Phase 2 完整版：三种匹配度 + CSR 净贡献验证 + 2 折 CV。 打分： S_cos  max_B z_B·z_C                       （特征余弦） S_vq   max_B [ z |
-| `phase2_orth.py` | 2026-11-05 | Phase 2: does the physical-appearance referee separate B_pos from B_neg better than F0-derived signals (whose  |
-| `phase2_v2.py` | 2026-11-13 | Phase 2 完整版 v2：四种匹配度 + CSR 验证 + 2 折 CV + Cumul。 打分： S_cos   max_B z_B·z_C S_vq    max_B [ z_B·z_C - max_{D in  |
-| `phase3_calib.py` | 2026-11-13 | Phase 3：自适应防爆阈值 + 支持集去污染诊断。 主实验：任务级自适应阈值 theta_ep = theta_0 + lam * relu(fg_ratio - 0.15) 其中 fg_ratio 是在 theta |
-| `phase3_erode3d.py` | 2026-11-13 | Phase 3 补充：基于支持集三维距离 d_to_bg 的边界腐蚀。 对每个支持前景点，计算它到最近支持背景点的欧氏距离 d_to_bg， 剔除 d_to_bg 最小的 20% / 30%，重提支持前景原型，再算查询集 |
-| `phase3_full.py` | 2026-11-13 | Phase 3 完整版：β_orth 正交投影 + 边界腐蚀 + 自适应阈值。 1) β_orth ∈ {0,0.2,0.5,0.8,1.0}：把支持/查询特征沿背景原型方向正交化， 重算支持前景原型，用余弦得分做超点平 |
-| `phase3_gate.py` | 2026-11-06 | Phase 3: does the CLIP consensus gate predict when bridging helps? agree_orth -- CLIP-space agreement between  |
-| `phase3_v2.py` | 2026-11-13 | Phase 3 v2：β_orth / 边界腐蚀 / 自适应阈值，全部带 Cumul 与 2 折 CV。 |
-| `phase4_p2_perclass.py` | 2026-11-13 | 补齐 Phase 4 后两行的逐类对比：Phase 2 CV 盲测 + 去污染（同上一行）。 |
-| `phase4_report.py` | 2026-11-13 | Phase 4：完整消融表（独立行 + pSE + 逐类）。 顺序按 objective： Baseline -> + 阈值校准 -> + 查询集超点一致性 -> + 空间邻接自桥接 -> + 支持集去污染 |
-| `phase4_v2.py` | 2026-11-13 | Phase 4 v2：按 2 折 CV 盲测口径生成消融表。 每个组件在训练折上选超参，在盲测折上评估，两折拼接成 560 的盲测结果。 Baseline           无超参 + 阈值校准          θ  |
-| `phase4_v3.py` | 2026-11-13 | Phase 4 v3：统一口径的 2 折 CV 盲测消融表。 与 v2 的区别：第四行不再读 Phase 2 的固定 baseline，而是 1) 在训练折选出 Phase 1 的最优 (agg, alpha, thet |
-| `phase4_veto.py` | 2026-11-06 | Task 14: orthogonal veto as the episode gate, after fixing the eta scale. eta was computed as logmeanexp(relu( |
-| `probe_repro.py` | 2026-11-05 | Minimal reproducibility probe: same manifest episode, same GPU, two runs. If two separate processes on the SAM |
-| `query_gate.py` | 2026-11-05 | Task 1.5 completion: real query-correlation gate for the bridge injection. For each episode, if the strongest  |
-| `rebuild_meta.py` | 2026-11-12 | 从 manifest + 已存在的 npz 重建 val_meta（不依赖分段进程写文件）。 |
-| `ring1_balance.py` | 2026-11-13 | 第一环：数据与任务划分均衡性核查（10 个 novel 类）。 |
-| `ring2_check.py` | 2026-11-13 | 核查 ring2 几何统计的 4 处疑点。 |
-| `ring2_export_ply.py` | 2026-11-13 | 第二环：导出 8 个典型任务的 U 点云（原始 RGB + 区域标注）。 颜色约定：B_pos 绿 (0,255,0)，B_neg 红 (255,0,0)， C_pos 黄 (255,255,0)，其余背景灰 (128, |
-| `ring2_physical.py` | 2026-11-13 | 第二环：B_pos / B_neg / C_pos 的语义成分与稠密几何特征。 在原始 .npy 稠密点上按 .segs.json 超点分组，计算几何量。 |
-| `ring2b_fixed.py` | 2026-11-14 | 10 类 unannotated 统计 + B_pos/B_neg 物理离地高度（按 block 分别算地面）。 z_rel 定义：超点内点的平均 z 减去【该超点所属 block 自己的】最低 z，单位米。 之前误用  |
-| `ring2b_unannotated.py` | 2026-11-14 | 10 类 unannotated 统计 + B_pos/B_neg 物理离地高度分布。 z_rel 的定义：超点内所有点的平均 z 减去该重块内所有点的最小 z， 单位为米（切块高 1m，所以数值自然落在 [0, 1]， |
-| `ring2c_full.py` | 2026-11-16 | 第二环补全：全 10 类 × 30 eps，按 block 自己的 z_min 算离地高度。 输出每类：B 精确率、unannotated 占比、排除 unannotated 后精确率、 B_neg Top3 混淆类别， |
-| `ring3_purify.py` | 2026-11-16 | 第三环：B 提纯策略 A/B/C（全 10 类 × 30 eps）。 指标：过滤后 B 精确率、B_pos 保留率、仍有 B 的任务比例。 禁止按类别写死阈值，所有规则都是类无关的。 |
-| `ring4_isolated.py` | 2026-11-16 | 第四环：把不同纯度的 B 作为前景原型送入 COSeg 相关性网络， 测它对查询集的直接贡献（不恢复 C，不训练）。 两种接口： onlyB  fg 原型 100 个全部来自 B S+B    S 前景点集与 B 点集合 |
-| `ring4_overlap.py` | 2026-11-16 | 第四环对照诊断：B 超点是否与查询集点云空间重合。 data_prepare_seg 会对每个 block 独立中心化，U 与 Q 的坐标不可比， 所以这里复现其 voxelize/crop 并保留到原始 .npy 的索 |
-| `ring4_report.py` | 2026-11-16 | 第四环出表：读 ring4_full.json，输出主表、纯度分组、Tier3 归因。 |
-| `ring4_ucover.py` | 2026-11-16 | 第四环补充：U 中真值同类物体对 Q 前景的形态覆盖。 不依赖模型，纯几何。对每个 episode： - U 中 label==cls 的原始点（真值前景）点数 / bbox 体积 - Q 中 label==cls 的原 |
-| `run_ablation.py` | 2026-11-13 | 导师文档第五部分的五步消融。 Step 1  原始 COSeg（不使用 U） Step 2  高置信超点 B 直接扩展原型（无 OASB/CSR，不恢复 C，W_phi=I） Step 3  OASB（eta=0），恢复 |
-| `run_cmc.py` | 2026-11-12 | 在 val_100 上评测 CMC 注入（Fix 1 + Fix 2 + Fix 3）。 对每个 gamma 跑 4 种注入： baseline  不挂 hook true      真实 delta_corr mean |
-| `run_cmc_s2.py` | 2026-11-13 | S2（纯加权相似度，中心化）的 CMC 注入评测。 与 run_cmc.py 的区别：注入信号从 delta_corr（S1）换成中心化的 S2。 |
-| `run_s2.py` | 2026-11-13 | S2（纯加权相似度）的端到端评测。 S2 有正确的四分组排序（FN > TP > FP > TN），但整体为正常数，必须先中心化 才能避免全局阈值平移。这里测： centered  : ell = q_margin +  |
-| `run_s34.py` | 2026-11-13 | S3 / S4（减背景得分）的 Logit 注入评测。 S3：Σ ŵ_R relu(z_R·z_q - c_bg(i)) S4：模块一/二基准也换成前景-背景裕度后，再算 S3 |
-| `same_scene_distance.py` | 2026-11-05 | Does the same-scene gain decay with distance between query and U blocks? Only meaningful within a scene (block |
-| `scan_block_classes.py` | 2026-11-13 | 一次性扫描所有 block 的类别，缓存为 json。 |
-| `scene_eval.py` | 2026-11-17 | 整场景评估：按 COSeg 官方协议（scenes/data + data_prepare_v101）测 baseline 与 U 的 Oracle 上限。 与 block 口径的区别 ----------------- |
-| `scene_merge.py` | 2026-11-17 | 合并 scene_eval.py 的多分片结果，重算 Cumul / Arith / 逐类 / U 命中率。 |
-| `scene_sampler_probe.py` | 2026-11-17 | 整场景下三种 voxel_max 采样策略对 baseline IoU 的影响。 v101    官方 data_prepare_v101：全场景随机采样（缓存目录名里的 rdmsp） sphere  球状裁剪 + 中心 |
-| `selfcheck_4_4.py` | 2026-11-12 | 导师文档 4.4 节的五项强制检查。 1. B/C 的划分只依赖初始预测 q_c，不使用 U 的真值 2. 负对照 N_c 在训练与测试阶段都能构建（不读 U 标签） 3. 强制 B_c 为空时，查询得分与原始 COSe |
-| `stability_signal.py` | 2026-11-05 | Task 2f: cross-episode B stability as an orthogonal signal. A superpoint is identified by (block name, raw seg |
-| `stats_blocks.py` | 2026-11-05 | Gate-3 check: block count and superpoints per block. |
-| `step1_gate.py` | 2026-11-05 | Step 1: add the end-to-end column to the baseline-stratified table, plus the two idealised gating ceilings. Th |
-| `step23_gate.py` | 2026-11-05 | Step 2/3: can an unsupervised episode-level signal predict (a) the baseline IoU and (b) whether bridging will  |
-| `summarize_full.py` | 2026-11-12 | 汇总全量 560 eps 的 Step 1-4 与 Step 5 网格结果。 |
-| `sweep_fusion.py` | 2026-11-12 | 扫描式(15)修正后的 fusion_mode 与 gamma。 每个 (step, mode) 只前向一次拿 delta_mem，然后在同一增量上扫 gamma。 delta_mem 已乘回 tau，与 margin  |
-| `sweep_gamma.py` | 2026-11-12 | 扫 gamma：融合强度从 0 到 0.2，找不伤 IoU 的临界点。 gamma -> 0 时式(15) 严格退回 COSeg。这条曲线能证明掉点来自融合项本身， 而不是 CSR 选错了桥。 |
-| `sweep_gamma_fine.py` | 2026-11-12 | Step 4 的 gamma 细化扫描（1.0-4.0），找最优点。 |
-| `sweep_step2.py` | 2026-11-12 | Step 2 掉点诊断：扫描 tau 与 Top-K，确认式(15)的量纲问题。 对每个 tau 只前向一次，然后在同一 out 上换 Top-K 与融合方式，比较 Query IoU。同时测一个「margin 校准」变 |
-| `test_ocsb_unit.py` | 2026-11-12 | ocsb_faithful 的纯 CPU 单元测试（不加载 COSeg，秒级）。 覆盖：前向形状、B 空退化、三项损失梯度、B/C 与 u_y/q 解耦。 |
-| `topk_curve.py` | 2026-11-05 | How does B precision decay as K grows, for the scores we could use? The end-to-end runs only evaluated K in {2 |
-| `train_bridge_scorer.py` | 2026-11-17 | 训练 BridgeScorer：把 10 个相关性空间统计量组合成一个原型权重。 参数量 193（10→16→1），远低于 1000，杜绝过拟合。 监督 ---- - 类别平衡 BCE：正样本按 (N_neg / N_p |
-| `train_stage2.py` | 2026-11-05 | Stage II: light fine-tuning of the bridge-path HCA only. Design constraints that motivate every choice here: * |
-| `train_sweep.py` | 2026-11-12 | Step 5 的 W_phi 训练网格：w_pos / w_reg / lr，逐轮评测。 复用 run_ablation 的缓存加载与评测逻辑。Epoch 0 的评测在更新前做， 用于确认它与 Step 4 的数值完全一 |
-| `train_sweep2k.py` | 2026-11-13 | 在 2000 个零泄漏 train split 任务上训练 W_phi，每 500 步评测 val_560。 |
-| `u_block_diag.py` | 2026-11-05 | Block/scene-level diagnostics for the bridge set B. The 21 superpoint-level signals all cap at AUC 0.615. This |
-| `v3_build_cache.py` | 2026-11-17 | 缓存 BridgeScorer 的训练特征（类别无关的相关性空间统计量）。 对每个 U 块的候选点（B 与邻接模糊带），提取 10 维特征： 1 p0            初始前景概率 2 sp_mean_p0     |
-| `v3_build_gate_cache.py` | 2026-11-17 | 缓存 OmissionGate 的训练样本：pred_S / pred_U / 任务级与点级特征。 预测器设计 ---------- `pred_U` 用训练好的 BridgeScorer 重新构造 U 原型集： 1.  |
-| `v3g_build_cache.py` | 2026-11-17 | 生成干净的 pred_S / pred_U 缓存。 修复三处算法级问题 + 一处泄漏： A. 不再把两个 U 块的 [2K, C] 原型矩阵按行平均。 两个房间的 FPS 原型在物理部位和语义通道上没有对应关系，按行平均 |
-| `v3h_build_cache.py` | 2026-11-17 | 生成 pred_S / pred_U 缓存（含连续权重与单向保护）。 相比 v3g_build_cache 的增量： 1. 保留 BridgeScorer 的连续权重：每个原型槽位的权重取簇内平均 w_u， 而不是把选中 |
-| `v3i_intra_query.py` | 2026-11-17 | 查询集内自桥接（U=Q）：在查询集自己身上挑 B_Q / C_Q 构造补充原型。 与跨房间版本的唯一区别：把 `uf` 换成 `qf`。 必须警惕的风险：自匹配 -------------------- `sparse_ |
-| `verify_controls.py` | 2026-11-13 | 三个对照，检验 Step 4 的增益是否来自真实空间匹配。 检验 1  常数阈值平移：ell = q_margin - theta（完全不用 U） 检验 2  空间打乱：把 delta_mem 替换为任务均值 / 随机打 |
-| `verify_gain.py` | 2026-11-12 | 核查 +2.13pp 的两个乐观来源。 1. 插值控制：baseline 用原始点级 margin，Step4 用 downsampled margin 插值。 如果 interp(margin_down) 本身的 Io |
+| `dl_scannetpp.sh` | 2026-11-19 | !/bin/bash（据注释） |
+| `dl_scannetpp_v2.sh` | 2026-11-19 | !/bin/bash（据注释） |
+| `dl_scannetpp_gfs.sh` | 2026-11-21 | !/bin/bash（据注释） |
+| `dl_scannetpp_parallel.sh` | 2026-11-21 | !/bin/bash（据注释） |
+| `dl_scanpp_parallel.sh` | 2026-11-22 | !/bin/bash（据注释） |
+| `guard_support_sym_eval.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `guard_xl_s7.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `overnight_cut2.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `overnight_watchdog.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `pl_pipeline_seed.sh` | 2026-11-21 | !/bin/bash（据注释） |
+| `pl_pipeline_shot.sh` | 2026-11-21 | !/bin/bash（据注释） |
+| `reeval_deterministic.sh` | 2026-11-22 | !/bin/bash（据注释） |
+| `report_watcher.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `resume_xl_s42.sh` | 2026-11-19 | !/bin/bash（据注释） |
+| `retry_failed.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `retry_support_sym.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `retry_sym_k5.sh` | 2026-11-20 | !/bin/bash（据注释） |
+| `start_xl_s7_after_base.sh` | 2026-11-19 | !/bin/bash（据注释） |
+| `watch_and_start_xl_s7.sh` | 2026-11-19 | !/bin/bash（据注释） |
+| `install_deps.sh` | 2026-11-16 | !/bin/bash（据注释） |
+
+## OCSB 主线（163，已分流到 3D_OCSB 仓库）
+
+这些脚本属于 3D 可供性 / 桥接 / 环实验主线，**不在本仓库保存副本**。
+物理副本：`experiment/3D_OCSB/legacy_scripts/code_ocsb/`。
+
+`adaptive_signal.py`、`analyze_cal.py`、`analyze_diag.py`、`analyze_full.py`、`analyze_overnight.py`、`analyze_paired.py`、`analyze_task6.py`、`analyze_toplk_oracle.py`、`auc_signals.py`、`audit_merge.py`、`audit_stage2.py`、`audit_u_infer.py`、`audit_u_merge.py`、`block_coord_probe.py`、`build_intra_cache.py`、`build_ocsb_cache.py`、`build_train2k.py`、`build_u_cache.py`、`check.py`、`check_coseg.py`、`check_pair.py`、`clip_vit.py`、`cohens_topk.py`、`collect_train_blocks.py`、`combo_signals.py`、`compare_u_mode.py`、`control_u_confound.py`、`coseg_mem_probe.py`、`coseg_su.py`、`cross_block_probe.py`、`death_test.py`、`diag_bc.py`、`diag_cache.py`、`diag_cmc.py`、`diag_signals.py`、`diag_sonata2.py`、`diag_step2.py`、`dump_for_sonata.py`、`eval_baseline.py`、`export_counter_by_block.py`、`export_counter_gt.py`、`export_ply2.py`、`export_room_raw.py`、`export_room_scene.py`、`extract_orth_feats.py`、`fake_tp.py`、`gate_probe.py`、`group_experiment.py`、`local_geometry.py`、`make_class2scans.py`、`make_manifest.py`、`ocsb_advanced.py`、`ocsb_cmc.py`、`ocsb_core.py`、`ocsb_faithful.py`、`ocsb_v3.py`、`official_compare.py`、`or_gate2.py`、`perclass_overnight.py`、`phase1_smooth.py`、`phase2_adjacent.py`、`phase2_clip.py`、`phase2_full.py`、`phase2_orth.py`、`phase2_v2.py`、`phase3_calib.py`、`phase3_erode3d.py`、`phase3_full.py`、`phase3_gate.py`、`phase3_v2.py`、`phase4_p2_perclass.py`、`phase4_report.py`、`phase4_v2.py`、`phase4_v3.py`、`phase4_veto.py`、`post_ub560.py`、`post_ub_official.py`、`post_v3.py`、`probe_agg.py`、`probe_calib.py`、`probe_fp.py`、`probe_gap.py`、`probe_gap2.py`、`probe_layers.py`、`probe_repro.py`、`probe_retrieval.py`、`probe_retrieval_merge.py`、`purity_analysis.py`、`purity_fix_probe.py`、`query_gate.py`、`rebuild_meta.py`、`recompute_filtered.py`、`repro_probe.py`、`repro_probe2.py`、`ring1_balance.py`、`ring2_check.py`、`ring2_export_ply.py`、`ring2_physical.py`、`ring2b_fixed.py`、`ring2b_unannotated.py`、`ring2c_full.py`、`ring3_purify.py`、`ring4_isolated.py`、`ring4_overlap.py`、`ring4_report.py`、`ring4_ucover.py`、`run_ablation.py`、`run_cmc.py`、`run_cmc_s2.py`、`run_official_eval.py`、`run_s2.py`、`run_s34.py`、`same_scene_distance.py`、`scan_block_classes.py`、`scene_eval.py`、`scene_merge.py`、`scene_sampler_probe.py`、`selfcheck_4_4.py`、`sonata_auc_merge.py`、`sonata_b_auc.py`、`sonata_check.py`、`sonata_p2_fuse.py`、`sonata_p2_merge.py`、`sonata_p3_merge.py`、`sonata_probe2.py`、`sonata_probe3.py`、`stability_signal.py`、`stats_blocks.py`、`step1_gate.py`、`step23_gate.py`、`summarize_full.py`、`sweep_fusion.py`、`sweep_gamma.py`、`sweep_gamma_fine.py`、`sweep_step2.py`、`test_ocsb_unit.py`、`topk_curve.py`、`train_bridge_scorer.py`、`train_episode_gate.py`、`train_omission_gate.py`、`train_stage2.py`、`train_su.py`、`train_sweep.py`、`train_sweep2k.py`、`u_block_diag.py`、`upper_bound.py`、`upper_bound_test.py`、`upper_bound_v2.py`、`v3_build_cache.py`、`v3_build_gate_cache.py`、`v3g_build_cache.py`、`v3h_build_cache.py`、`v3i_intra_query.py`、`verify_controls.py`、`verify_gain.py`、`verify_replicate.py`、`weak_support_test.py`、`run_k_sweep.sh`、`run_paired.sh`、`run_prep_rest.sh`、`run_same_scene.sh`、`run_task6.sh`、`watch_s2.sh`
 
 ---
 
