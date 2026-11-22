@@ -5,6 +5,7 @@ Author: Zhaochong An (anzhaochong@outlook.com)
 Please cite our work if the code is helpful to you.
 """
 
+import gc
 import os
 import sys
 import weakref
@@ -166,7 +167,7 @@ class Trainer(TrainerBase):
         super(Trainer, self).__init__()
         self.epoch = 0
         self.start_epoch = 0
-        self.max_epoch = cfg.eval_epoch
+        self.max_epoch = cfg.epoch  # 原版误用 eval_epoch；历史配置两者相等，行为不变
         self.best_metric_value = -torch.inf
         self.logger = get_root_logger(
             log_file=os.path.join(cfg.save_path, "train.log"),
@@ -351,7 +352,7 @@ class Trainer(TrainerBase):
         assert hasattr(self, "optimizer")
         assert hasattr(self, "train_loader")
         self.cfg.scheduler.total_steps = (
-            len(self.train_loader) * self.cfg.eval_epoch
+            len(self.train_loader) * self.cfg.epoch  # 原版误用 eval_epoch：当 loop=epoch//eval_epoch 时总步数会被低估 loop 倍
         )
         return build_scheduler(self.cfg.scheduler, self.optimizer)
 
@@ -451,6 +452,11 @@ class GFS_VL_Trainer(Trainer):
         num_novel = self.cfg.data.num_base_novels - self.cfg.data.num_bases
         average_features = torch.zeros(num_novel, 512, device="cuda")
         class_counts = torch.zeros(num_novel, device="cuda")
+        # 多原型：每个 shot 一个独立原型（修 5-shot 单均值坍塌）
+        _K = max(int(getattr(self.cfg, "k_shot", 1) or 1), 1)
+        multi_protos = torch.zeros(num_novel, _K, 512, device="cuda")
+        multi_valid = torch.zeros(num_novel, _K, dtype=torch.bool, device="cuda")
+        _shot_cnt = torch.zeros(num_novel, dtype=torch.long, device="cuda")
 
         if comm.is_main_process():
             for input_dict in regis_val_loader:
@@ -476,6 +482,11 @@ class GFS_VL_Trainer(Trainer):
                         idx = class_id - self.cfg.data.num_bases
                         average_features[idx] += class_features.sum(dim=0)
                         class_counts[idx] += class_features.size(0)
+                        _k = int(_shot_cnt[idx])
+                        if _k < _K:
+                            multi_protos[idx, _k] = class_features.mean(dim=0)
+                            multi_valid[idx, _k] = True
+                            _shot_cnt[idx] += 1
 
             # Verify each novel class has at least one sample
             assert torch.all(class_counts > 0)
@@ -485,6 +496,7 @@ class GFS_VL_Trainer(Trainer):
         # Broadcast the computed prototypes to all processes in distributed training
         if comm.get_world_size() > 1:
             dist.broadcast(average_features, src=0)
+        self.vlm_novel_protos = (multi_protos, multi_valid)
         return average_features
 
     def build_model(self):
@@ -592,7 +604,11 @@ class GFS_VL_Trainer(Trainer):
                     )
                     _ep = int(_ck.get("epoch", 0))
                     if 0 < _ep < self.max_epoch:
-                        self.model.load_state_dict(_ck["state_dict"], strict=False)
+                        _miss, _unexp = self.model.load_state_dict(
+                            _ck["state_dict"], strict=False)
+                        self.logger.info(
+                            "=> Resume: missing=%d unexpected=%d"
+                            % (len(_miss), len(_unexp)))
                         if _ck.get("optimizer") is not None:
                             self.optimizer.load_state_dict(_ck["optimizer"])
                         if _ck.get("scheduler") is not None:
@@ -606,6 +622,24 @@ class GFS_VL_Trainer(Trainer):
                         )
                 except Exception as _e:  # noqa: BLE001
                     self.logger.info("=> Resume skipped: %s" % _e)
+            elif len(self.cfg.regis_train_list) > 1:
+                # 多 split 各自独立评测。若沿用上一个 split 训练完的权重，
+                # split2..N 就是在已经见过 novel 类的模型上继续训 20 epoch，
+                # 会把 5-split 均值系统性抬高，结果不能对标官方。
+                self.logger.info(
+                    "=> 多 split：重置模型/优化器/调度器，并重新注入 Stage-1 骨干"
+                )
+                del self.model
+                gc.collect()
+                torch.cuda.empty_cache()
+                self.model = self.build_model()
+                for _h in self.hooks:
+                    if _h.__class__.__name__ == "BackboneLoader":
+                        _h.before_train()
+                self.optimizer = self.build_optimizer()
+                self.scheduler = self.build_scheduler()
+                self.scaler = self.build_scaler()
+                self.start_epoch = 0
 
             # Execute the training loop for the current registration dataset
             with EventStorage() as self.storage, ExceptionWriter():
@@ -678,30 +712,64 @@ class GFS_VL_Trainer(Trainer):
                 if comm.get_world_size() > 1
                 else self.model.criteria
             )
-            if "pl_weight" in input_dict:
+            _pw = (
+                input_dict["pl_weight"].float()
+                if "pl_weight" in input_dict else None
+            )
+
+            # ---- 训练期 Logit Adjustment (Menon et al., ICLR 2021) ----
+            _use_la = bool(getattr(self.cfg, "use_la", False))
+            if _use_la and not hasattr(self, "_la_bias"):
+                _pi_path = getattr(self.cfg, "la_prior_path",
+                                   "/data01/jh/data/pl_class_prior_full.npy")
+                _pi = torch.tensor(np.load(_pi_path), dtype=torch.float32,
+                                   device=seg_logits.device)
+                _pi = _pi / _pi.sum()
+                _tau = float(getattr(self.cfg, "la_tau", 0.5))
+                self._la_bias = _tau * torch.log(_pi).unsqueeze(0)
+                self.logger.info("[LA] tau=%.2f pi range %.6f~%.6f"
+                                 % (_tau, float(_pi.min()), float(_pi.max())))
+            if _use_la:
+                seg_logits = seg_logits + self._la_bias.to(seg_logits.dtype)
+
+            def _weighted_ce(logits):
+                # 主 loss 与辅助 loss 共用同一口径，避免软权重模式下静默不一致
+                if _pw is None:
+                    return criteria(logits, new_target)
                 ce = torch.nn.functional.cross_entropy(
-                    seg_logits, new_target, reduction="none", ignore_index=-1)
-                w = input_dict["pl_weight"].float()
+                    logits, new_target, reduction="none", ignore_index=-1)
                 valid = new_target != -1
-                loss = (ce * w)[valid].sum() / (w[valid].sum() + 1e-6)
-                if os.environ.get("GFS_DEBUG_W") and not getattr(self, "_w_dbg", False):
-                    self._w_dbg = True
-                    pw = w[valid]
-                    base = (new_target >= 0) & (new_target < 12)
-                    self.logger.info(
-                        "[pl_weight] n=%d mean=%.3f min=%.3f max=%.3f | "
-                        "base-GT w min=%.3f max=%.3f"
-                        % (int(valid.sum()), float(pw.mean()), float(pw.min()),
-                           float(pw.max()),
-                           float(w[base].min()) if base.any() else -1.0,
-                           float(w[base].max()) if base.any() else -1.0))
-            else:
-                loss = criteria(seg_logits, new_target)
+                return (ce * _pw)[valid].sum() / (_pw[valid].sum() + 1e-6)
+
+            loss = _weighted_ce(seg_logits)
+            if _pw is not None and os.environ.get("GFS_DEBUG_W") and not getattr(self, "_w_dbg", False):
+                self._w_dbg = True
+                valid = new_target != -1
+                pw = _pw[valid]
+                base = (new_target >= 0) & (new_target < 12)
+                self.logger.info(
+                    "[pl_weight] n=%d mean=%.3f min=%.3f max=%.3f | "
+                    "base-GT w min=%.3f max=%.3f"
+                    % (int(valid.sum()), float(pw.mean()), float(pw.min()),
+                       float(pw.max()),
+                       float(_pw[base].min()) if base.any() else -1.0,
+                       float(_pw[base].max()) if base.any() else -1.0))
+            if getattr(self.cfg, "use_lovasz", False):
+                from pointcept.models.losses import LovaszLoss
+                _lv = LovaszLoss(mode="multiclass", ignore_index=-1,
+                                 loss_weight=float(getattr(self.cfg, "lovasz_w", 1.0)))
+                _n = seg_logits.shape[0]
+                _lo = _lv(seg_logits.view(_n, -1, 1, 1),
+                          new_target.view(_n, 1, 1))
+                if not getattr(self, "_lv_logged", False):
+                    self._lv_logged = True
+                    self.logger.info("[Lovasz] ce=%.4f lovasz=%.4f" % (float(loss), float(_lo)))
+                loss = loss + _lo
             if decorr_loss is not None:
                 loss = loss + decorr_loss
             if cross_logits is not None:
                 _lam = float(getattr(self.cfg, "lam_cross", 0.3))
-                loss = loss + _lam * criteria(cross_logits, new_target)
+                loss = loss + _lam * _weighted_ce(cross_logits)
             output_dict["loss"] = loss
 
         self.optimizer.zero_grad()
@@ -771,12 +839,19 @@ class GFS_VL_Trainer(Trainer):
                     # Ignore base classes
                     pred_cloud[pred_cloud == class_id] = -1
                 else:
-                    novel_proto = self.vlm_novel_proto[
-                        class_id - self.cfg.data.num_bases
-                    ]
-                    similarity = torch.cosine_similarity(
-                        proto, novel_proto, dim=0
-                    )
+                    _ni = class_id - self.cfg.data.num_bases
+                    similarity = None
+                    if hasattr(self, "vlm_novel_protos"):
+                        _protos, _valid = self.vlm_novel_protos
+                        _p = _protos[_ni][_valid[_ni]]
+                        if _p.numel() > 0:
+                            # 取与该类 K 个 shot 原型中的最大相似度
+                            similarity = torch.cosine_similarity(
+                                proto.unsqueeze(0), _p, dim=1).max()
+                    if similarity is None:
+                        similarity = torch.cosine_similarity(
+                            proto, self.vlm_novel_proto[_ni], dim=0
+                        )
                     if similarity < ps_thresh:
                         self._filter_stats["ps_drop"] += 1
                         pred_cloud[pred_cloud == class_id] = -1
