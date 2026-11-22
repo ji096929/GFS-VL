@@ -451,6 +451,37 @@ class GFSSemSegTester(TesterBase):
         make_dirs(save_path)
         comm.synchronize()
         record = {}
+        # ---- 诊断 A：尺度实测 + 三组扫描（GFS_HEAD_AUDIT=1）----
+        _audit = bool(os.environ.get("GFS_HEAD_AUDIT"))
+        _NB = self.cfg.data.num_bases
+        _NN = self.cfg.data.num_base_novels - _NB
+        _NC = _NB + _NN
+        _D = [round(-3.0 + 0.25 * i, 2) for i in range(25)]
+        _A = [round(0.6 + 0.1 * i, 2) for i in range(15)]
+        _G = [0.5, 1.0]
+        _cm_d = {d: np.zeros((_NC, _NC), dtype=np.int64) for d in _D} if _audit else None
+        _cm_a = {a: np.zeros((_NC, _NC), dtype=np.int64) for a in _A} if _audit else None
+        _cm_g = {(g, a): np.zeros((_NC, _NC), dtype=np.int64)
+                 for g in _G for a in _A} if _audit else None
+        _wn_novel = None
+        _scale_acc = None
+        if _audit:
+            _m = self.model.module if comm.get_world_size() > 1 else self.model
+            _wn_novel = _m.novel_seg_head.weight.detach().norm(dim=1).cpu().numpy()
+            _wbc = getattr(_m, "base_cross_head", None)
+            logger.info("[audit-w] ||seg_head|| per-class: %s"
+                        % np.round(_m.seg_head.weight.detach().norm(dim=1).cpu().numpy(), 3).tolist())
+            logger.info("[audit-w] ||novel_head|| per-class: %s"
+                        % np.round(_wn_novel, 3).tolist())
+            logger.info("[audit-w] ||base_cross_head|| mean %.4f"
+                        % (float(_wbc.weight.detach().norm(dim=1).mean()) if _wbc is not None else -1.0))
+            _scale_acc = dict(nb=0, nb_sum=0.0, nn_sum=0.0, lb_sum=0.0, lb_sq=0.0,
+                              ln_sum=0.0, ln_sq=0.0, lmax_b=0.0, lmax_n=0.0)
+        # 可选：完整混淆矩阵（GFS_SAVE_CM=1 时启用，默认关闭）
+        _cm_on = bool(os.environ.get("GFS_SAVE_CM"))
+        _cm = np.zeros(
+            (self.cfg.data.num_base_novels, self.cfg.data.num_base_novels),
+            dtype=np.int64) if _cm_on else None
         # fragment inference
         for idx, data_dict in enumerate(self.test_loader):
             end = time.time()
@@ -504,12 +535,57 @@ class GFSSemSegTester(TesterBase):
                         batch_num=len(fragment_list),
                     )
                 )
+            if _audit:
+                _lg = pred
+                _vld = (segment >= 0) & (segment < _NC)
+                if _vld.any():
+                    _gv = segment[_vld].astype(np.int64)
+                    _lv = _lg[_vld]
+                    _lb = _lv[:, :_NB].detach()
+                    _ln = _lv[:, _NB:].detach()
+                    _s = _scale_acc
+                    _s["nb"] += int(_lv.shape[0])
+                    _s["lb_sum"] += float(_lb.sum())
+                    _s["lb_sq"] += float((_lb * _lb).sum())
+                    _s["ln_sum"] += float(_ln.sum())
+                    _s["ln_sq"] += float((_ln * _ln).sum())
+                    _s["lmax_b"] = max(_s["lmax_b"], float(_lb.max()))
+                    _s["lmax_n"] = max(_s["lmax_n"], float(_ln.max()))
+                    # S1 加性
+                    for _d in _D:
+                        _l = _lv.clone(); _l[:, :_NB] -= _d
+                        _pv = _l.argmax(1).cpu().numpy().astype(np.int64)
+                        _cm_d[_d] += np.bincount(_gv * _NC + _pv, minlength=_NC * _NC).reshape(_NC, _NC)
+                    # S2 乘性
+                    for _a in _A:
+                        _l = _lv.clone(); _l[:, _NB:] *= _a
+                        _pv = _l.argmax(1).cpu().numpy().astype(np.int64)
+                        _cm_a[_a] += np.bincount(_gv * _NC + _pv, minlength=_NC * _NC).reshape(_NC, _NC)
+                    # S3 Novel 内部 tau-norm + alpha
+                    _wt = torch.from_numpy(_wn_novel).to(_lv.device).clamp(min=1e-9)
+                    for _g2 in _G:
+                        _base = _lv.clone()
+                        _base[:, _NB:] = _base[:, _NB:] / (_wt ** _g2).unsqueeze(0)
+                        for _a in _A:
+                            _l = _base.clone(); _l[:, _NB:] *= _a
+                            _pv = _l.argmax(1).cpu().numpy().astype(np.int64)
+                            _cm_g[(_g2, _a)] += np.bincount(
+                                _gv * _NC + _pv, minlength=_NC * _NC).reshape(_NC, _NC)
             pred = pred.max(1)[1].data.cpu().numpy()
             if "origin_segment" in data_dict.keys():
                 assert "inverse" in data_dict.keys()
                 pred = pred[data_dict["inverse"]]
                 segment = data_dict["origin_segment"]
 
+            if _cm_on:
+                _NC = self.cfg.data.num_base_novels
+                _v = (segment >= 0) & (segment < _NC)
+                if _v.any():
+                    _cm += np.bincount(
+                        segment[_v].astype(np.int64) * _NC
+                        + pred[_v].astype(np.int64),
+                        minlength=_NC * _NC,
+                    ).reshape(_NC, _NC)
             intersection, union, target = intersection_and_union(
                 pred,
                 segment,
@@ -592,6 +668,44 @@ class GFSSemSegTester(TesterBase):
             )
 
             # 保存逐场景 inter/union/target，供离线计算 Precision/Recall
+            _split = getattr(self.test_loader.dataset, "split", "val")
+            if _cm_on and _cm is not None:
+                _cmp = os.path.join(save_path, f"{_split}_cm.npy")
+                np.save(_cmp, _cm)
+                logger.info("=> Confusion matrix saved: %s" % _cmp)
+            _split = getattr(self.test_loader.dataset, "split", "val")
+            if _audit and _cm_d is not None:
+                _out = {("d%.2f" % k): v for k, v in _cm_d.items()}
+                _out.update({("a%.1f" % k): v for k, v in _cm_a.items()})
+                _out.update({("g%.1f_a%.1f" % k): v for k, v in _cm_g.items()})
+                _out["wn_novel"] = _wn_novel
+                np.savez_compressed(os.path.join(save_path, "head_audit.npz"), **_out)
+                _s = _scale_acc; _n = max(_s["nb"], 1)
+                _mb, _sqb = _s["lb_sum"] / _n, _s["lb_sq"] / _n
+                _mn, _sqn = _s["ln_sum"] / _n, _s["ln_sq"] / _n
+                logger.info("[audit-scale] logits_base: mean %.4f std %.4f max %.3f"
+                            % (_mb, (_sqb - _mb * _mb) ** 0.5, _s["lmax_b"]))
+                logger.info("[audit-scale] logits_novel: mean %.4f std %.4f max %.3f"
+                            % (_mn, (_sqn - _mn * _mn) ** 0.5, _s["lmax_n"]))
+                def _hm(_c):
+                    _c = _c.astype(np.float64)
+                    _iou = np.diag(_c) / np.maximum(_c.sum(0) + _c.sum(1) - np.diag(_c), 1)
+                    _b, _nn2 = _iou[:_NB].mean(), _iou[_NB:].mean()
+                    return _b, _nn2, 2 * _b * _nn2 / max(_b + _nn2, 1e-9)
+                logger.info("[audit-S1] delta  Base   Novel   HM")
+                for _d in _D:
+                    _b, _nn2, _h = _hm(_cm_d[_d])
+                    logger.info("[audit-S1] %+5.2f  %.4f  %.4f  %.4f" % (_d, _b, _nn2, _h))
+                logger.info("[audit-S2] alpha  Base   Novel   HM")
+                for _a in _A:
+                    _b, _nn2, _h = _hm(_cm_a[_a])
+                    logger.info("[audit-S2] %.1f  %.4f  %.4f  %.4f" % (_a, _b, _nn2, _h))
+                logger.info("[audit-S3] gamma alpha  Base   Novel   HM")
+                for _g2 in _G:
+                    for _a in _A:
+                        _b, _nn2, _h = _hm(_cm_g[(_g2, _a)])
+                        logger.info("[audit-S3] %.1f  %.1f  %.4f  %.4f  %.4f"
+                                    % (_g2, _a, _b, _nn2, _h))
             _split = getattr(self.test_loader.dataset, "split", "val")
             _save = os.path.join(save_path, f"{_split}.pth")
             try:
