@@ -5,7 +5,7 @@
 > **口径**：`抖动` = train.log 最后一次 val（`shuffle_orders` 随机，同权重两次可差 0.5–0.8）；
 > `确定性` = `det_eval/` 重评（已修 `shuffle_orders`，两次评估 0.0000 误差）。**跨实验比较只用确定性口径。**
 
-实验目录 **100** 个：done 80 / unevaluated 5 / incomplete 1 / failed 1 / invalid 7 / infra 6。
+实验目录 **111** 个：done 91 / unevaluated 5 / incomplete 1 / failed 1 / invalid 7 / infra 6。
 
 确定性命中 6 个（`det_eval/`）。
 
@@ -26,7 +26,7 @@
 | `spunet_bk` | scannet200 | — / ce | — | — | — | 42 | OneCycleLR,AdamW | 2个/0.9G | infra |
 | `ptv3_bk` | scannetpp | — / ce | — | — | — | — | — | 1个/0.5G | infra |
 
-## 01 跨层读出主干与结构变体（28）
+## 01 跨层读出主干与结构变体（33）
 
 | 目录 | 数据集 | 结构/损失 | 伪标签 | 抖动 Base/Novel/HM | 确定性 Base/Novel/HM | 种子 | 口径备注 | 权重 | 状态 |
 |---|---|---|---|---|---|---|---|---|---|
@@ -56,7 +56,12 @@
 | `sym_xl_s42` | scannet200 | sym_xl / ce | — | 0.6877/0.3083/0.4257 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sym_xl_s7` | scannet200 | sym_xl / ce | — | 0.6775/0.3058/0.4214 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
 | `xl_s13` | scannet200 | xl / ce | — | 0.6725/0.3044/0.4191 | — | 13 | 主干:model_best.pth | 7个/3.6G | done |
+| `1A0_det` | scannetpp | — / ce | — | 0.6126/0.2111/0.3140 | — | 45863570 | PS0.60/AI0.95,续训:scpp_base_lovasz_k5,主干:model_best.pth | — | done |
+| `_l1_smoke` | scannetpp | — / ce | — | 0.5981/0.0374/0.0703 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
+| `_l1_smoke3` | scannetpp | — / ce | — | 0.5805/0.0776/0.1369 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
 | `scpp_base_lovasz` | scannetpp | — / lovasz | — | 0.6120/0.1819/0.2804 | — | 20363522 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
+| `scpp_l1hybrid` | scannetpp | — / ce | — | 0.6226/0.2227/0.3281 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
+| `scpp_l1pure` | scannetpp | — / ce | — | 0.6176/0.2205/0.3250 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
 | `scpp_sym_lovasz` | scannetpp | sym / lovasz | — | 0.6177/0.1969/0.2986 | — | 31853493 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
 
 ## 02 损失函数（2）
@@ -118,7 +123,7 @@
 | `sonata_s_s2_unfrozen_lovasz` | scannet200 | — / lovasz | — | 0.6448/0.3121/0.4206 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sonata_small_stage1a` | scannet200 | — / ce | — | — | — | 45983941 | OneCycleLR,AdamW,续训:jh | 2个/0.5G | unevaluated |
 
-## 07 shot 数与点数上限（27）
+## 07 shot 数与点数上限（33）
 
 | 目录 | 数据集 | 结构/损失 | 伪标签 | 抖动 Base/Novel/HM | 确定性 Base/Novel/HM | 种子 | 口径备注 | 权重 | 状态 |
 |---|---|---|---|---|---|---|---|---|---|
@@ -148,5 +153,11 @@
 | `sym_lovasz_k5_102400_s42` | scannet200 | sym / lovasz | — | 0.6835/0.3413/0.4553 | — | 42 | 主干:model_best.pth | 1个/0.5G | done |
 | `sym_xl_k5_s42` | scannet200 | sym_xl / ce | — | — | — | 42 | 主干:model_best.pth | 1个/0.5G | unevaluated |
 | `scpp_base_lovasz_k5` | scannetpp | — / lovasz | — | 0.6155/0.2117/0.3150 | — | 20269292 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
+| `scpp_base_lovasz_k5_entq10` | scannetpp | — / lovasz | — | 0.6040/0.2468/0.3505 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
+| `scpp_base_lovasz_k5_entq10_fix` | scannetpp | — / lovasz | — | 0.5924/0.2404/0.3420 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
+| `scpp_base_lovasz_k5_entq50` | scannetpp | — / lovasz | — | 0.5238/0.1767/0.2642 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
+| `scpp_base_lovasz_k5_lr1e3` | scannetpp | — / lovasz | — | 0.6224/0.1658/0.2618 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
+| `scpp_base_lovasz_k5_noai` | scannetpp | — / lovasz | — | 0.6189/0.1752/0.2731 | — | 42 | PS0.60/AI2.00,主干:model_best.pth | 1个/0.5G | done |
+| `scpp_base_lovasz_k5_psaithenq` | scannetpp | — / lovasz | — | 0.6231/0.2387/0.3452 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
 | `scpp_sym_lovasz_k5` | scannetpp | sym / lovasz | — | 0.6243/0.2064/0.3103 | — | 25559278 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
 

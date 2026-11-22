@@ -699,14 +699,35 @@ class GFS_VL_Trainer(Trainer):
             if isinstance(value, torch.Tensor):
                 input_dict[key] = value.cuda(non_blocking=True)
 
-        # Calibrate target labels based on 3D VLM predictions
-        new_target = self.target_calibrate(input_dict)
+        # Level 1: student_consensus 需要先 forward，再复用 detach 的 logits
+        # 做仲裁。否则会多跑一次前向，在 train() 模式下双倍更新 SyncBN。
+        _mode = getattr(self.cfg, "pl_mode", "ps_ai")
+        _warm = int(getattr(self.cfg, "warmup_epochs", 0))
+        _reuse = (_mode == "student_consensus" and self.epoch >= _warm)
+
+        if _reuse:
+            with torch.cuda.amp.autocast(enabled=self.cfg.enable_amp):
+                _pre_out = self.model(input_dict)
+                _pre_logits = _pre_out.pop("seg_logits")
+                _pre_decorr = _pre_out.pop("decorr_loss", None)
+                _pre_cross = _pre_out.pop("cross_logits", None)
+            new_target = self.target_calibrate(
+                input_dict, seg_logits=_pre_logits.detach())
+        else:
+            # Calibrate target labels based on 3D VLM predictions
+            new_target = self.target_calibrate(input_dict)
 
         with torch.cuda.amp.autocast(enabled=self.cfg.enable_amp):
-            output_dict = self.model(input_dict)
-            seg_logits = output_dict.pop("seg_logits")
-            decorr_loss = output_dict.pop("decorr_loss", None)
-            cross_logits = output_dict.pop("cross_logits", None)
+            if _reuse:
+                output_dict = _pre_out
+                seg_logits = _pre_logits
+                decorr_loss = _pre_decorr
+                cross_logits = _pre_cross
+            else:
+                output_dict = self.model(input_dict)
+                seg_logits = output_dict.pop("seg_logits")
+                decorr_loss = output_dict.pop("decorr_loss", None)
+                cross_logits = output_dict.pop("cross_logits", None)
             criteria = (
                 self.model.module.criteria
                 if comm.get_world_size() > 1
@@ -873,18 +894,48 @@ class GFS_VL_Trainer(Trainer):
         return torch.cat(filtered_preds, dim=0)
 
     @torch.no_grad()
-    def target_calibrate(self, input_dict):
+    def target_calibrate(self, input_dict, seg_logits=None):
         """
         Calibrate the segmentation target labels using 3D VLM and few-shot data.
+
+        seg_logits: 当前训练前向的 logits（已 detach）。student_consensus 模式下
+        复用它做学生仲裁，避免再跑一次前向污染 SyncBN 统计。
         """
         if os.environ.get("GFS_OFFLINE_PL", ""):
             # offline pseudo-labels already merged into segment by the dataset
             return input_dict["segment"].clone()
+
+        # L1-Pure 热身期：连冻结 VLM 都不跑，直接返回干净 GT
+        _m0 = getattr(self.cfg, "pl_mode", "ps_ai")
+        if (_m0 == "student_consensus"
+                and self.epoch < int(getattr(self.cfg, "warmup_epochs", 4))
+                and getattr(self.cfg, "warmup_mode", "none") == "none"):
+            return input_dict["segment"].clone()
+
         data_dict = self.construct_3D_vlm_input(input_dict)
         ret_dict = self.VLM_3D(data_dict)
 
         label = input_dict["segment"].clone()
         bg_label_mask = label == -1  # Default background label
+
+        _mode = getattr(self.cfg, "pl_mode", "ps_ai")
+
+        # ---- Level 1: 学生 × VLM Top-K 双向共识 ----
+        if _mode == "student_consensus":
+            _warm = int(getattr(self.cfg, "warmup_epochs", 4))
+            if self.epoch < _warm:
+                # 热身期：L1-Pure 完全不生成伪标签；L1-Hybrid 用 1C 的熵过滤
+                if getattr(self.cfg, "warmup_mode", "none") == "entropy_q":
+                    return self._target_entropy_quantile(
+                        ret_dict, input_dict, label, bg_label_mask)
+                return label
+            return self._student_consensus_pl(input_dict, ret_dict, seg_logits)
+
+        # ---- 1C: UGA UB-Filter 等价实现（pl_mode="entropy_q"）----
+        # 跳过 PS/AI，直接对 VLM 原生 seg_scores 做 class-wise 熵分位过滤。
+        if _mode == "entropy_q":
+            return self._target_entropy_quantile(
+                ret_dict, input_dict, label, bg_label_mask)
 
         prediction = ret_dict["seg_preds"].clone()
         # Filter predictions using prototype similarity
@@ -981,10 +1032,196 @@ class GFS_VL_Trainer(Trainer):
 
         # Merge predictions from all batches and update background regions in the original label
         prediction = torch.cat(new_predictions, dim=0)
+
+        # ---- 1C-c: 在 PS+AI 之上再叠按类熵分位过滤（UGA 的配方）----
+        if getattr(self.cfg, "pl_mode", "ps_ai") == "ps_ai_then_entropy":
+            prediction = self._entropy_prune(
+                prediction, ret_dict, input_dict, bg_label_mask, offset)
+
         label_one_hot = label.clone()
         label_one_hot[bg_label_mask] = prediction[bg_label_mask]
 
         return label_one_hot
+
+    @torch.no_grad()
+    def _target_entropy_quantile(self, ret_dict, input_dict, label, bg_label_mask):
+        """UGA UB-Filter：class-wise 熵分位过滤，跳过 PS 与 AI。
+
+        熵用 VLM 原生 seg_scores（已乘预训练 logit_scale），无额外温度。
+        分位在 batch 内每类独立计算：保留熵最低的 entropy_keep_rho 比例。
+        """
+        # 用余弦 logits 算熵：原始 seg_scores = cls_head(feats)，feats 未归一化
+        # 实测 Spearman(||f||, entropy) = -0.928，未归一化的熵在按特征模长排序，
+        # 不是语义不确定性。cls_head 行范数=1.0，所以余弦化不改变 argmax。
+        feats = ret_dict.get("all_feats", None)
+        if feats is None:
+            raise RuntimeError("1C: ret_dict 缺少 all_feats")
+        W = self.VLM_3D.task_head.cls_head.weight
+        cos_logits = torch.nn.functional.normalize(
+            feats.float(), dim=-1) @ W.t()
+
+        nb = int(self.cfg.data.num_bases)
+        rho = float(getattr(self.cfg, "entropy_keep_rho", 0.1))
+
+        # 只在 novel 子集里 argmax。实测：GT novel 点的 Top-1 有 49.5% 被
+        # 12 个 base 类抢走，屏蔽后 Top-1 从 0.4734 跳到 0.7943（+32.1pp）。
+        # bg_label_mask 区域（label==-1）理论上不存在 base 类，所以屏蔽零成本。
+        cos_nv = cos_logits[:, nb:]               # (N, num_novel)
+        pred = cos_nv.argmax(dim=-1) + nb
+
+        p = torch.softmax(cos_nv, dim=-1)
+        ent = -(p * (p + 1e-8).log()).sum(dim=-1)
+
+        offset = [int(x) for x in input_dict["offset"].tolist()]
+        out = []
+        n_keep = n_drop = 0
+        for s, e in zip([0] + offset[:-1], offset):
+            pc = pred[s:e].clone()
+            eu = ent[s:e]
+            for c in pc.unique():
+                ci = int(c.item())
+                if ci < nb:
+                    continue
+                # 只在伪标签真正写入的区域算分位。
+                # 否则 GT base（60%）与 support GT（17%）会在 cos_nv 上
+                # 低熵地映射到某个 novel 类，吃掉该类 k=int(n*rho) 的配额。
+                m = (pc == c) & bg_label_mask[s:e]
+                n = int(m.sum())
+                if n <= 1:
+                    continue
+                k = max(1, int(n * rho))
+                thr = torch.topk(eu[m], k, largest=False).values[-1]
+                drop = m & (eu > thr)
+                nd = int(drop.sum())
+                n_drop += nd
+                n_keep += n - nd
+                pc[drop] = -1
+            out.append(pc)
+        pred = torch.cat(out, dim=0)
+
+        if not hasattr(self, "_ent_stats"):
+            self._ent_stats = dict(pl_keep=0, pl_drop=0, gt_keep=0, n_log=0)
+        self._ent_stats["pl_keep"] += n_keep
+        self._ent_stats["pl_drop"] += n_drop
+        self._ent_stats["gt_keep"] += int((~bg_label_mask).sum())
+        self._ent_stats["n_log"] += 1
+        if self._ent_stats["n_log"] % 20 == 0:
+            self.logger.info(
+                "[1C] 累计 keep=%d drop=%d (rho=%.2f) | GT 保留=%d"
+                % (self._ent_stats["pl_keep"], self._ent_stats["pl_drop"], rho,
+                   self._ent_stats["gt_keep"]))
+
+        out_label = label.clone()
+        out_label[bg_label_mask] = pred[bg_label_mask]
+        return out_label
+
+    @torch.no_grad()
+    def _entropy_prune(self, prediction, ret_dict, input_dict, bg_label_mask, offset):
+        """对 PS+AI 已生成的预测做按类熵分位裁剪。
+
+        与 _target_entropy_quantile 的区别：不重新 argmax、不屏蔽 base，
+        只在 bg 区域按「已预测的类」分组，保留熵最低的 entropy_keep_rho 比例。
+        """
+        feats = ret_dict.get("all_feats", None)
+        if feats is None:
+            return prediction
+        W = self.VLM_3D.task_head.cls_head.weight
+        cos_logits = torch.nn.functional.normalize(
+            feats.float(), dim=-1) @ W.t()
+        nb = int(self.cfg.data.num_bases)
+        rho = float(getattr(self.cfg, "entropy_keep_rho", 0.1))
+
+        cos_nv = cos_logits[:, nb:]
+        p = torch.softmax(cos_nv, dim=-1)
+        ent = -(p * (p + 1e-8).log()).sum(-1)
+
+        out = prediction.clone()
+        n_keep = n_drop = 0
+        for s, e in zip([0] + offset[:-1], offset):
+            pc = out[s:e]
+            eu = ent[s:e]
+            bg = bg_label_mask[s:e]
+            for c in pc.unique():
+                ci = int(c.item())
+                if ci < nb:
+                    continue
+                m = (pc == c) & bg
+                n = int(m.sum())
+                if n <= 1:
+                    continue
+                k = max(1, int(n * rho))
+                thr = torch.topk(eu[m], k, largest=False).values[-1]
+                drop = m & (eu > thr)
+                nd = int(drop.sum())
+                n_drop += nd
+                n_keep += n - nd
+                pc[drop] = -1
+
+        _k = getattr(self, "_cc_keep", 0) + n_keep
+        _d = getattr(self, "_cc_drop", 0) + n_drop
+        _n = getattr(self, "_cc_n", 0) + 1
+        self._cc_keep, self._cc_drop, self._cc_n = _k, _d, _n
+        if _n % 20 == 0:
+            self.logger.info(
+                "[1C-c] PS+AI 后累计 keep=%d drop=%d (rho=%.2f, keep_ratio=%.2f)"
+                % (_k, _d, rho, _k / max(_k + _d, 1)))
+        return out
+
+    @torch.no_grad()
+    def _student_consensus_pl(self, input_dict, ret_dict, seg_logits=None):
+        """学生 × VLM Top-K 双向共识。
+
+        只采纳同时满足三个条件的点：学生置信、学生判 novel、学生预测落在
+        VLM 的 Top-K 候选内。学生判 base 的点自然被排除（s_pred < nb）。
+        """
+        nb = int(self.cfg.data.num_bases)
+        tau = float(getattr(self.cfg, "stu_tau", 0.4))
+        K = int(getattr(self.cfg, "stu_topk", 2))
+
+        label = input_dict["segment"].clone()
+        bg = label == -1
+
+        feats = ret_dict.get("all_feats", None)
+        if feats is None:
+            return label
+        W = self.VLM_3D.task_head.cls_head.weight
+        cos_logits = torch.nn.functional.normalize(
+            feats.float(), dim=-1) @ W.t()
+        cos_nv = cos_logits[:, nb:]
+        kk = min(K, cos_nv.shape[1])
+        cand = cos_nv.topk(kk, dim=-1).indices + nb          # (N, K)
+
+        if seg_logits is None:
+            s_out = self.model(input_dict)
+            s_logits = s_out["seg_logits"] if isinstance(s_out, dict) else s_out
+        else:
+            s_logits = seg_logits
+        s_prob = torch.softmax(s_logits.float(), dim=-1)
+        s_conf, s_pred = s_prob.max(dim=-1)
+
+        in_cand = (s_pred.unsqueeze(1) == cand).any(dim=1)
+        keep = (s_conf > tau) & (s_pred >= nb) & in_cand & bg
+
+        pl = torch.full_like(s_pred, -1)
+        pl[keep] = s_pred[keep]
+
+        out = label.clone()
+        out[bg] = pl[bg]
+
+        n_bg = int(bg.sum())
+        n_keep = int(keep.sum())
+        if not hasattr(self, "_sc_stats"):
+            self._sc_stats = dict(keep=0, bg=0, n=0)
+        self._sc_stats["keep"] += n_keep
+        self._sc_stats["bg"] += n_bg
+        self._sc_stats["n"] += 1
+        if self._sc_stats["n"] % 20 == 0:
+            s = self._sc_stats
+            self.logger.info(
+                "[L1] 累计 keep=%d bg=%d (%.1f%%) tau=%.2f K=%d ep=%d"
+                % (s["keep"], s["bg"], 100.0 * s["keep"] / max(s["bg"], 1),
+                   tau, K, self.epoch))
+        return out
 
     def construct_3D_vlm_input(self, input_dict):
         """
