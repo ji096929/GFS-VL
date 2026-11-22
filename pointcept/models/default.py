@@ -42,6 +42,7 @@ class DefaultSegmentorV2(nn.Module):
         backbone_out_channels,
         backbone=None,
         criteria=None,
+        freeze_enc=False,
     ):
         super().__init__()
         self.seg_head = (
@@ -51,6 +52,20 @@ class DefaultSegmentorV2(nn.Module):
         )
         self.backbone = build_model(backbone)
         self.criteria = build_criteria(criteria)
+
+        # freeze_enc：只冻结 encoder（embedding + enc），decoder 与读出头照常训练。
+        # 用于 sonata_small 接入的 Stage-1a。
+        self.freeze_enc = bool(freeze_enc)
+        if self.freeze_enc:
+            _frozen, _train = 0, 0
+            for _name, _p in self.backbone.named_parameters():
+                if _name.startswith(("embedding.", "enc.")):
+                    _p.requires_grad = False
+                    _frozen += _p.numel()
+                else:
+                    _train += _p.numel()
+            print("freeze_enc: 冻结 %.2fM，可训练 %.2fM"
+                  % (_frozen / 1e6, _train / 1e6))
 
     def getFeatures(self, input_dict):
         point = Point(input_dict)
@@ -105,15 +120,22 @@ class RegisTrainSegmentor(nn.Module):
         depth_gate=False,
         detach_cross=False,
         lam_cross=0.0,
+        rep_dec0=False,
+        ln_only=False,
         decorr_weight=0.0,
+        freeze_backbone=False,
+        freeze_enc=False,
     ):
         super().__init__()
         self.cross_layers = tuple(cross_layers)
+        self.backbone_out_channels = int(backbone_out_channels)
         self.mlp_hidden = int(mlp_hidden)
         self.base_cross = bool(base_cross)
         self.depth_gate = bool(depth_gate)
         self.detach_cross = bool(detach_cross)
         self.lam_cross = float(lam_cross)
+        self.rep_dec0 = bool(rep_dec0)
+        self.ln_only = bool(ln_only)
         self.decorr_weight = float(decorr_weight)
         self._decorr_first = None
 
@@ -136,6 +158,17 @@ class RegisTrainSegmentor(nn.Module):
         elif self.cross_layers:
             assert len(cross_dims) == len(self.cross_layers)
             self.dec0_norm = nn.LayerNorm(backbone_out_channels)
+            if self.rep_dec0:
+                # dec0_rep3 对照：dec0 复制两份走独立投影，
+                # 结构与 sym_xl 完全相同，只是特征源只有 dec0
+                self.rep_norms = nn.ModuleList(
+                    [nn.LayerNorm(backbone_out_channels)
+                     for _ in self.cross_layers])
+                self.rep_projs = nn.ModuleList(
+                    [nn.Linear(backbone_out_channels, cross_dim)
+                     for _ in self.cross_layers])
+                self.rep_outs = nn.ModuleList(
+                    [nn.LayerNorm(cross_dim) for _ in self.cross_layers])
             self.cross_norms = nn.ModuleDict()
             self.cross_projs = nn.ModuleDict()
             self.cross_outs = nn.ModuleDict()
@@ -148,6 +181,11 @@ class RegisTrainSegmentor(nn.Module):
             )
             self.novel_seg_head = nn.Linear(
                 novel_in, num_novel_classes, bias=False
+            )
+        elif self.ln_only:
+            self.novel_seg_head = nn.Sequential(
+                nn.LayerNorm(backbone_out_channels),
+                nn.Linear(backbone_out_channels, num_novel_classes, bias=False),
             )
         else:
             self.novel_seg_head = nn.Linear(
@@ -178,6 +216,26 @@ class RegisTrainSegmentor(nn.Module):
 
         self.backbone = build_model(backbone)
         self.criteria = build_criteria(criteria)
+
+        # frozen-backbone 模式：主干完全冻结，只训读出与分类头
+        self.freeze_backbone = bool(freeze_backbone)
+        if self.freeze_backbone:
+            for _p in self.backbone.parameters():
+                _p.requires_grad = False
+
+        # freeze_enc：只冻结 encoder（embedding + enc），decoder 与读出头照常训练。
+        # 用于 sonata_small 接入的 Stage-1a（冻结预训练编码器，只训新 decoder）。
+        self.freeze_enc = bool(freeze_enc)
+        if self.freeze_enc and not self.freeze_backbone:
+            _frozen, _train = 0, 0
+            for _name, _p in self.backbone.named_parameters():
+                if _name.startswith(("embedding.", "enc.")):
+                    _p.requires_grad = False
+                    _frozen += _p.numel()
+                else:
+                    _train += _p.numel()
+            print("freeze_enc: 冻结 %.2fM，可训练 %.2fM"
+                  % (_frozen / 1e6, _train / 1e6))
 
         self._cr = {}
         if self.cross_layers:
@@ -231,6 +289,15 @@ class RegisTrainSegmentor(nn.Module):
     def _cross_projs(self, feat):
         ln0 = self.dec0_norm(feat.float())
         projs = []
+        if self.rep_dec0:
+            for i in range(len(self.cross_layers)):
+                _h = feat.float()
+                if self.detach_cross:
+                    _h = _h.detach()
+                h = self.rep_norms[i](_h)
+                h = torch.nn.functional.gelu(self.rep_projs[i](h))
+                projs.append(self.rep_outs[i](h))
+            return ln0, projs
         for s in self.cross_layers:
             _h = self._to_full(s).float()
             if self.detach_cross:
@@ -274,8 +341,14 @@ class RegisTrainSegmentor(nn.Module):
                     # L_cross: 在纯跨层子空间做辅助监督，消除 base_cross_head
                     # 被 seg_head(dec0) 遮住梯度的问题（推理时不用）。
                     if self.training and self.lam_cross > 0:
+                        _boc = self.backbone_out_channels
+                        assert _cf.shape[1] == (
+                            self.novel_seg_head.weight.shape[1] - _boc
+                        ), "cross feat dim mismatch: %d vs %d" % (
+                            _cf.shape[1],
+                            self.novel_seg_head.weight.shape[1] - _boc)
                         _cn = torch.nn.functional.linear(
-                            _cf, self.novel_seg_head.weight[:, 64:]
+                            _cf, self.novel_seg_head.weight[:, _boc:]
                         )
                         cross_logits = torch.cat([_bc, _cn], dim=1)
                 if self.training and self.decorr_weight > 0:

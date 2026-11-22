@@ -429,7 +429,8 @@ class SerializedPooling(PointModule):
             ),
         )
 
-        if self.shuffle_orders:
+        # eval 时关闭随机序列化，否则同一权重两次评估会有 0.x 的抖动
+        if self.shuffle_orders and self.training:
             perm = torch.randperm(code.shape[0])
             code = code[perm]
             order = order[perm]
@@ -515,22 +516,41 @@ class Embedding(PointModule):
         embed_channels,
         norm_layer=None,
         act_layer=None,
+        embedding_type="conv",
     ):
         super().__init__()
         self.in_channels = in_channels
         self.embed_channels = embed_channels
 
-        # TODO: check remove spconv
-        self.stem = PointSequential(
-            conv=spconv.SubMConv3d(
-                in_channels,
-                embed_channels,
-                kernel_size=5,
-                padding=1,
-                bias=False,
-                indice_key="stem",
+        # embedding_type="linear" 用于对齐 Sonata / Concerto 预训练权重：
+        # 它们的 stem 是 nn.Linear(9 -> C)，不是 spconv 5x5x5(6 -> C)。
+        # 构造出的 key 恰好是 stem.linear.weight/bias，与官方 ckpt 逐字一致；
+        # mask_token 也照抄（官方 ckpt 里有这个键，虽然推理不用，但要让 unexpected 归零）。
+        if embedding_type == "linear":
+            self.stem = PointSequential(
+                linear=nn.Linear(in_channels, embed_channels)
             )
-        )
+            # mask_token 是 Sonata 做 MAE 预训练时的占位参数，前向完全不用。
+            # 必须 requires_grad=False：否则 DDP 的 reducer 会盯上一个永远没有
+            # 梯度的参数，直接抛 "did not receive grad for rank N"（2026-11-22 实测）。
+            self.mask_token = nn.Parameter(
+                torch.zeros(1, embed_channels), requires_grad=False
+            )
+        elif embedding_type == "conv":
+            # TODO: check remove spconv
+            self.stem = PointSequential(
+                conv=spconv.SubMConv3d(
+                    in_channels,
+                    embed_channels,
+                    kernel_size=5,
+                    padding=1,
+                    bias=False,
+                    indice_key="stem",
+                )
+            )
+            self.mask_token = None
+        else:
+            raise ValueError("未知 embedding_type: %r" % (embedding_type,))
         if norm_layer is not None:
             self.stem.add(norm_layer(embed_channels), name="norm")
         if act_layer is not None:
@@ -575,6 +595,8 @@ class PointTransformerV3(PointModule):
         pdnorm_adaptive=False,
         pdnorm_affine=True,
         pdnorm_conditions=("ScanNet", "S3DIS", "Structured3D"),
+        norm_all_ln=False,
+        embedding_type="conv",
     ):
         super().__init__()
         self.num_stages = len(enc_depths)
@@ -593,7 +615,14 @@ class PointTransformerV3(PointModule):
         assert self.cls_mode or self.num_stages == len(dec_patch_size) + 1
 
         # norm layers
-        if pdnorm_bn:
+        if norm_all_ln:
+            # 整网 LayerNorm：Sonata / Concerto 的预训练 state_dict 里没有任何
+            # running_mean/var（全部 LN）。若保留 BatchNorm1d，strict=False 加载
+            # 会把 LN 的 weight/bias 塞进 BN，前向用 running_mean=0/var=1 归一化，
+            # 预训练特征直接失效。详见 2026-11-21 记录。
+            bn_layer = nn.LayerNorm
+            ln_layer = nn.LayerNorm
+        elif pdnorm_bn:
             bn_layer = partial(
                 PDNorm,
                 norm_layer=partial(
@@ -628,6 +657,7 @@ class PointTransformerV3(PointModule):
             embed_channels=enc_channels[0],
             norm_layer=bn_layer,
             act_layer=act_layer,
+            embedding_type=embedding_type,
         )
 
         # encoder
@@ -730,7 +760,8 @@ class PointTransformerV3(PointModule):
     def forward(self, data_dict):
         point = Point(data_dict)
         point.serialization(
-            order=self.order, shuffle_orders=self.shuffle_orders
+            order=self.order,
+            shuffle_orders=self.shuffle_orders and self.training,
         )
         point.sparsify()
 
