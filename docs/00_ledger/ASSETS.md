@@ -130,3 +130,14 @@
 | `exp_reports/results_all.json` | 17 个 CUT2 run 的汇总指标 + 57 类 IoU |
 | `exp_reports/ckpt_manifest.txt` | 175 条权重路径与大小 |
 | `exp_reports/logs_snapshot_20261120.tar.gz` | 48 份日志快照（899 M，在 OCSB 仓库/网盘） |
+
+---
+
+## 八、跨层诊断文档索引
+
+| 文档 | 内容 | 关键结论 |
+|---|---|---|
+| `docs/01_cross_layer/CUT2_EXT_REPORT.md` | cat192 有效秩、base_cross_head 逐基类范数 | 对称残差没有提升读出端有效秩 |
+| `docs/01_cross_layer/OVERNIGHT_CUT2_REPORT.md` | CUT2 扩展实验汇总 | — |
+| `docs/01_cross_layer/WEEK1_ZERO_TRAIN_2026-11-24.md` | 第一周零训练诊断（X1/X3/X5/X8） | `dec0` 有效秩在 9 个实验里都锁在 10–11.5；`sym` 的 dec0 跨 seed 余弦 0.98（base 0.81） |
+| `docs/01_cross_layer/XL1_GRADIENT_HIGHWAY_2026-11-24.md` | **XL-1 结案：跨层增益来自反向梯度捷径** | `detach` HM 0.4089 < base 0.4241 < sym 0.4381；ep20 时 dec2 的梯度 81.4% 来自跨层支路；detach 后三层探针全最低 |
