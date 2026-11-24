@@ -357,6 +357,15 @@ class RegisTrainSegmentor(nn.Module):
                 novel_seg_logits = self.novel_seg_head(feat)
             seg_logits = torch.cat([base_seg_logits, novel_seg_logits], dim=1)
         finally:
+            # 只读诊断：推理时把 dec1/dec2 的全分辨率特征存到 _cr_last，
+            # 供 X1/X8 的 eRank / 线性探针脚本读取。训练时完全不执行。
+            if not self.training:
+                try:
+                    self._cr_last = {"dec0": feat.detach()}
+                    for s in self.cross_layers:
+                        self._cr_last["dec%d" % s] = self._to_full(s).detach()
+                except Exception:
+                    self._cr_last = {}
             # 必须及时清掉：缓存的中间张量带 grad_fn，留着会跨 iter 泄漏显存
             self._cr.clear()
 

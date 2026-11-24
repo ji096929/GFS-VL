@@ -173,9 +173,10 @@ class ScanNetPPDataset_REGISTrain(ScanNetPPDataset_BASETrain):
     Novel instance patches are extracted from registration data and inserted along training scenes.
     """
 
-    def __init__(self, nb_mix_blks=3, k_shot=5, seed=10, **kwargs):
+    def __init__(self, nb_mix_blks=3, k_shot=5, seed=10, full_gt=False, **kwargs):
         super().__init__(**kwargs)
         self.nb_mix_blks = nb_mix_blks
+        self.full_gt = bool(full_gt)
 
         # Load registration set from file.
         regis_file = os.path.join(
@@ -212,6 +213,12 @@ class ScanNetPPDataset_REGISTrain(ScanNetPPDataset_BASETrain):
 
         # Novel classes are the keys in the registration set.
         self.novel_classes = list(self.regis_cls2scans.keys())
+
+        # Oracle 模式：用 0-29 的完整映射（原场景的 novel GT 不再被置 -1）。
+        # 只为「全监督上界 / 完美过滤上界」实验使用，普通训练保持 BASETrain 的
+        # 单 base 映射不变。
+        if self.full_gt:
+            self.lookup_array = self.regis_lookup_array
 
     def _get_instances_from_class(self, class_id):
         """

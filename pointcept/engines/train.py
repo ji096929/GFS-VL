@@ -703,7 +703,11 @@ class GFS_VL_Trainer(Trainer):
         # 做仲裁。否则会多跑一次前向，在 train() 模式下双倍更新 SyncBN。
         _mode = getattr(self.cfg, "pl_mode", "ps_ai")
         _warm = int(getattr(self.cfg, "warmup_epochs", 0))
-        _reuse = (_mode == "student_consensus" and self.epoch >= _warm)
+        _reuse = ((_mode == "student_consensus" and self.epoch >= _warm)
+                  or (_mode == "entropy_q"
+                      and bool(getattr(self.cfg, "use_3d_veto", False))
+                      and self.epoch >= int(
+                          getattr(self.cfg, "veto_warmup_epochs", 0))))
 
         if _reuse:
             with torch.cuda.amp.autocast(enabled=self.cfg.enable_amp):
@@ -905,6 +909,12 @@ class GFS_VL_Trainer(Trainer):
             # offline pseudo-labels already merged into segment by the dataset
             return input_dict["segment"].clone()
 
+        # ---- Oracle 上界实验（GFS_ORACLE_MODE）----
+        _oracle = os.environ.get("GFS_ORACLE_MODE", "")
+        if _oracle == "fullsup":
+            # 全监督：直接用完整 GT（需 data.train.full_gt=True）
+            return input_dict["segment"].clone()
+
         # L1-Pure 热身期：连冻结 VLM 都不跑，直接返回干净 GT
         _m0 = getattr(self.cfg, "pl_mode", "ps_ai")
         if (_m0 == "student_consensus"
@@ -917,6 +927,10 @@ class GFS_VL_Trainer(Trainer):
 
         label = input_dict["segment"].clone()
         bg_label_mask = label == -1  # Default background label
+
+        # Oracle 完美过滤：需要 ret_dict 已生成
+        if _oracle == "filter":
+            return self._target_oracle_filter(ret_dict, input_dict)
 
         _mode = getattr(self.cfg, "pl_mode", "ps_ai")
 
@@ -931,11 +945,19 @@ class GFS_VL_Trainer(Trainer):
                 return label
             return self._student_consensus_pl(input_dict, ret_dict, seg_logits)
 
+        # ---- M1: 30 类全空间 argmax（不屏蔽基类）----
+        # 实测：屏蔽 12 个基类会让未标注区的天花板/白墙失去吸收器，
+        # smoke detector 在 712 chunk 上产生 982 万假阳性（GT 的 4400 倍）。
+        # 改回 30 类竞争后同一统计只剩 15 点。
+        if _mode in ("m1_argmax", "m1_cos"):
+            return self._target_m1_argmax(
+                ret_dict, input_dict, use_cos=(_mode == "m1_cos"))
+
         # ---- 1C: UGA UB-Filter 等价实现（pl_mode="entropy_q"）----
         # 跳过 PS/AI，直接对 VLM 原生 seg_scores 做 class-wise 熵分位过滤。
         if _mode == "entropy_q":
             return self._target_entropy_quantile(
-                ret_dict, input_dict, label, bg_label_mask)
+                ret_dict, input_dict, label, bg_label_mask, seg_logits)
 
         prediction = ret_dict["seg_preds"].clone()
         # Filter predictions using prototype similarity
@@ -1044,7 +1066,8 @@ class GFS_VL_Trainer(Trainer):
         return label_one_hot
 
     @torch.no_grad()
-    def _target_entropy_quantile(self, ret_dict, input_dict, label, bg_label_mask):
+    def _target_entropy_quantile(self, ret_dict, input_dict, label,
+                                 bg_label_mask, seg_logits=None):
         """UGA UB-Filter：class-wise 熵分位过滤，跳过 PS 与 AI。
 
         熵用 VLM 原生 seg_scores（已乘预训练 logit_scale），无额外温度。
@@ -1062,12 +1085,52 @@ class GFS_VL_Trainer(Trainer):
 
         nb = int(self.cfg.data.num_bases)
         rho = float(getattr(self.cfg, "entropy_keep_rho", 0.1))
+        # 1C-g: 全局绝对阈值（跨类统一）。设为 float 时忽略 rho，
+        # 只在 ent <= entropy_abs_thresh 处写入伪标签。
+        # 理由：每类 top-k 保留率是常数，对正样本率 < 保留率的稀疏类
+        # （smoke 2.6%、paper 1.2%）纯度上界被锁死，排序再准也拿不到点。
+        # 熵的绝对尺度类间差异只有 0.0004，远小于类内动态范围 0.0021，
+        # 因此跨类统一阈值在数学上是合法的。
+        _abs_thr = getattr(self.cfg, "entropy_abs_thresh", None)
+        _abs_thr = None if _abs_thr is None else float(_abs_thr)
+
+        # ---- 3D veto 通用参数（Exp B-fix1/fix2）----
+        # veto_warmup_epochs: 前 N 轮不开 veto，给 novel 头热身。
+        # Epoch 0 时 novel_seg_head 是 Kaiming 随机初始化（std~0.125），
+        # 而 base 头来自 800 轮预训练，所以 base_p 接近 1，冷启动必杀。
+        # veto_stage: "pre" = 先否决再取分位（不占用 top-k 配额）；
+        #             "post" = 先取分位再否决（Exp B 原顺序）。
+        _warm_veto = int(getattr(self.cfg, "veto_warmup_epochs", 0))
+        _tau3 = float(getattr(self.cfg, "veto_tau", 0.7))
+        _use_veto = (seg_logits is not None
+                     and bool(getattr(self.cfg, "use_3d_veto", False))
+                     and self.epoch >= _warm_veto)
+        _veto_pre = str(getattr(self.cfg, "veto_stage", "post")) == "pre"
 
         # 只在 novel 子集里 argmax。实测：GT novel 点的 Top-1 有 49.5% 被
         # 12 个 base 类抢走，屏蔽后 Top-1 从 0.4734 跳到 0.7943（+32.1pp）。
         # bg_label_mask 区域（label==-1）理论上不存在 base 类，所以屏蔽零成本。
         cos_nv = cos_logits[:, nb:]               # (N, num_novel)
         pred = cos_nv.argmax(dim=-1) + nb
+
+        # fix2 (veto_stage="pre")：先把高置信 base 点从候选里剔掉，
+        # 再按熵取分位。这样被否决的点不再占用该类 top-k 的配额。
+        if _use_veto and _veto_pre:
+            _sp = torch.softmax(seg_logits.float(), dim=-1)
+            _base_p = _sp[:, :nb].max(dim=-1).values
+            _vm = (_base_p > _tau3) & bg_label_mask
+            pred[_vm] = -1
+            if not hasattr(self, "_preveto_stats"):
+                self._preveto_stats = dict(veto=0, cand=0, n=0)
+            st = self._preveto_stats
+            st["veto"] += int(_vm.sum())
+            st["cand"] += int(bg_label_mask.sum())
+            st["n"] += 1
+            if st["n"] % 20 == 0:
+                self.logger.info(
+                    "[VetoPre] tau=%.2f ep=%d 累计 veto_bg=%d / cand_bg=%d (%.1f%%)"
+                    % (_tau3, self.epoch, st["veto"], st["cand"],
+                       100.0 * st["veto"] / max(st["cand"], 1)))
 
         p = torch.softmax(cos_nv, dim=-1)
         ent = -(p * (p + 1e-8).log()).sum(dim=-1)
@@ -1089,9 +1152,12 @@ class GFS_VL_Trainer(Trainer):
                 n = int(m.sum())
                 if n <= 1:
                     continue
-                k = max(1, int(n * rho))
-                thr = torch.topk(eu[m], k, largest=False).values[-1]
-                drop = m & (eu > thr)
+                if _abs_thr is not None:
+                    drop = m & (eu > _abs_thr)
+                else:
+                    k = max(1, int(n * rho))
+                    thr = torch.topk(eu[m], k, largest=False).values[-1]
+                    drop = m & (eu > thr)
                 nd = int(drop.sum())
                 n_drop += nd
                 n_keep += n - nd
@@ -1107,9 +1173,38 @@ class GFS_VL_Trainer(Trainer):
         self._ent_stats["n_log"] += 1
         if self._ent_stats["n_log"] % 20 == 0:
             self.logger.info(
-                "[1C] 累计 keep=%d drop=%d (rho=%.2f) | GT 保留=%d"
-                % (self._ent_stats["pl_keep"], self._ent_stats["pl_drop"], rho,
+                "[1C] 累计 keep=%d drop=%d (%s) | GT 保留=%d"
+                % (self._ent_stats["pl_keep"], self._ent_stats["pl_drop"],
+                   ("abs=%.6f" % _abs_thr) if _abs_thr is not None
+                   else ("topk rho=%.2f" % rho),
                    self._ent_stats["gt_keep"]))
+
+        # fix1 (veto_stage="post")：分位过滤之后再否决。
+        # 统计口径修正：Exp B 的旧版没乘 bg_label_mask，把 60% 的 GT base
+        # 点和 support 点也计入了 veto，导致 veto_share 虚高到 0.84。
+        # 真正有诊断价值的指标是「bg 区域内伪标签被否决的比例」。
+        if _use_veto and not _veto_pre:
+            _sp = torch.softmax(seg_logits.float(), dim=-1)
+            _base_p = _sp[:, :nb].max(dim=-1).values
+            _veto = (_base_p > _tau3) & (pred >= nb)
+            _pl_before = int(((pred >= nb) & bg_label_mask).sum())
+            _veto_bg = int((_veto & bg_label_mask).sum())
+            pred[_veto] = -1
+            _pl_after = int(((pred >= nb) & bg_label_mask).sum())
+            if not hasattr(self, "_veto_stats"):
+                self._veto_stats = dict(veto=0, veto_bg=0, pl_b=0, pl_a=0, n=0)
+            st = self._veto_stats
+            st["veto"] += int(_veto.sum())
+            st["veto_bg"] += _veto_bg
+            st["pl_b"] += _pl_before
+            st["pl_a"] += _pl_after
+            st["n"] += 1
+            if st["n"] % 20 == 0:
+                self.logger.info(
+                    "[Veto] tau=%.2f ep=%d 伪标签 %d->%d (否决 %.1f%%) | 全域veto=%d"
+                    % (_tau3, self.epoch, st["pl_b"], st["pl_a"],
+                       100.0 * (1.0 - st["pl_a"] / max(st["pl_b"], 1)),
+                       st["veto"]))
 
         out_label = label.clone()
         out_label[bg_label_mask] = pred[bg_label_mask]
@@ -1222,6 +1317,85 @@ class GFS_VL_Trainer(Trainer):
                 % (s["keep"], s["bg"], 100.0 * s["keep"] / max(s["bg"], 1),
                    tau, K, self.epoch))
         return out
+
+    @torch.no_grad()
+    def _target_m1_argmax(self, ret_dict, input_dict, use_cos=False):
+        """M1：30 类全空间 argmax，只保留 novel 命中；可选按类绝对余弦阈值。"""
+        feats = ret_dict.get("all_feats", None)
+        if feats is None:
+            return input_dict["segment"].clone()
+        nb = int(self.cfg.data.num_bases)
+        W = self.VLM_3D.task_head.cls_head.weight
+        cos = torch.nn.functional.normalize(feats.float(), dim=-1) @ W.t()
+        pred = cos.argmax(dim=-1)
+        novel = pred >= nb
+        if use_cos:
+            if not hasattr(self, "_tau_c"):
+                _p = getattr(self.cfg, "tau_path",
+                             "/data01/jh/data/step0/tau_c_p50.npy")
+                self._tau_c = torch.from_numpy(np.load(_p)).to(pred.device)
+            maxc = cos.gather(1, pred.unsqueeze(1)).squeeze(1)
+            _t = self._tau_c[pred]
+            novel = novel & ((_t <= 0) | (maxc > _t))
+        label = input_dict["segment"].clone()
+        bg = label == -1
+        pl = torch.full_like(pred, -1)
+        sel = novel & bg
+        pl[sel] = pred[sel]
+        out = label.clone()
+        out[bg] = pl[bg]
+        if not hasattr(self, "_m1_stats"):
+            self._m1_stats = dict(keep=0, bgc=0, n=0)
+        self._m1_stats["keep"] += int(sel.sum())
+        self._m1_stats["bgc"] += int(bg.sum())
+        self._m1_stats["n"] += 1
+        if self._m1_stats["n"] % 20 == 0:
+            st = self._m1_stats
+            self.logger.info(
+                "[M1] keep=%d bg=%d (%.1f%%) cos=%s ep=%d" % (
+                    st["keep"], st["bgc"],
+                    100.0 * st["keep"] / max(st["bgc"], 1),
+                    use_cos, self.epoch))
+        return out
+
+    @torch.no_grad()
+    def _target_oracle_filter(self, ret_dict, input_dict):
+        """完美过滤上界：只保留 PL 正确覆盖的原场景 novel 点。
+
+        base GT 与 support GT 无条件保留；原场景 novel 点只有在 PL 预测与 GT
+        一致时才保留，其余设 -1（模拟「所有错误 PL 都被过滤掉」）。
+        """
+        nb = int(self.cfg.data.num_bases)
+        label = input_dict["segment"].clone()
+        feats = ret_dict.get("all_feats", None)
+        if feats is None:
+            return label
+        W = self.VLM_3D.task_head.cls_head.weight
+        cos = torch.nn.functional.normalize(feats.float(), dim=-1) @ W.t()
+        mode = getattr(self.cfg, "pl_mode", "oracle_m1")
+        if mode == "oracle_m0":
+            pred = cos[:, nb:].argmax(-1) + nb
+        else:
+            p30 = cos.argmax(-1)
+            pred = torch.where(p30 >= nb, p30, torch.full_like(p30, -1))
+        novel_gt = label >= nb
+        supp = input_dict.get("mask", None)
+        if supp is not None:
+            supp = supp == 0
+        else:
+            supp = torch.zeros_like(label, dtype=torch.bool)
+        wrong = (pred != label) & novel_gt & (~supp)
+        label[wrong] = -1
+        if not hasattr(self, "_or_stats"):
+            self._or_stats = dict(keep=0, drop=0, n=0)
+        self._or_stats["keep"] += int((novel_gt & (~wrong)).sum())
+        self._or_stats["drop"] += int(wrong.sum())
+        self._or_stats["n"] += 1
+        if self._or_stats["n"] % 20 == 0:
+            st = self._or_stats
+            self.logger.info("[Oracle] %s keep=%d drop=%d" % (
+                mode, st["keep"], st["drop"]))
+        return label
 
     def construct_3D_vlm_input(self, input_dict):
         """
