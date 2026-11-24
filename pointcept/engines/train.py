@@ -800,6 +800,7 @@ class GFS_VL_Trainer(Trainer):
         self.optimizer.zero_grad()
         if self.cfg.enable_amp:
             self.scaler.scale(loss).backward()
+            _gn_probe(self)
             self.scaler.step(self.optimizer)
             # Adjust the scheduler if loss scaling factor remains unchanged
             scaler = self.scaler.get_scale()
@@ -808,6 +809,7 @@ class GFS_VL_Trainer(Trainer):
                 self.scheduler.step()
         else:
             loss.backward()
+            _gn_probe(self)
             self.optimizer.step()
             self.scheduler.step()
 
@@ -1478,3 +1480,52 @@ class GFS_VL_Trainer(Trainer):
 
         data_dict["batch_size"] = batch_size
         return data_dict
+
+
+def _gn_probe(trainer):
+    """XL-1 诊断：每 20 iter 记录一次 dec0/dec1/dec2/other 的梯度 L2 与 RMS。
+
+    * 只在 iter % 20 == 0 时做实际统计，其余 iter 只自增计数器
+    * AMP 下 p.grad 是 scaled 的，先除以 scaler.get_scale() 还原真实量级
+    * 全程在 GPU 上累加标量，循环结束只调一次 .item()
+    * 绝不影响训练：整体 try/except
+    """
+    if not bool(getattr(trainer.cfg, "log_grad_norm", False)):
+        return
+    try:
+        n = int(getattr(trainer, "_gn_iter", 0)) + 1
+        trainer._gn_iter = n
+        if n % 20 != 0:
+            return
+        scale = 1.0
+        if getattr(trainer, "scaler", None) is not None:
+            sc = float(trainer.scaler.get_scale())
+            if sc > 0:
+                scale = 1.0 / sc
+        acc = {g: [torch.zeros((), device="cuda"),
+                   torch.zeros((), device="cuda")]
+               for g in ("dec0", "dec1", "dec2", "other")}
+        for nm, prm in trainer.model.named_parameters():
+            if prm.grad is None:
+                continue
+            g = prm.grad.detach().float() * scale
+            grp = "other"
+            if "dec0." in nm:
+                grp = "dec0"
+            elif "dec1." in nm:
+                grp = "dec1"
+            elif "dec2." in nm:
+                grp = "dec2"
+            acc[grp][0] += (g * g).sum()
+            acc[grp][1] += float(g.numel())
+        parts = []
+        for grp in ("dec0", "dec1", "dec2", "other"):
+            s2, cnt = acc[grp]
+            l2 = float(torch.sqrt(s2).item())
+            rms = l2 / max(cnt ** 0.5, 1.0)
+            parts.append("%s L2=%.3e RMS=%.3e" % (grp, l2, rms))
+        trainer.logger.info(
+            "[GradNorm] ep=%d it=%d invscale=%.2e | %s"
+            % (trainer.epoch, n, scale, " | ".join(parts)))
+    except Exception:
+        pass
