@@ -230,7 +230,26 @@ class ScanNetPPDataset_REGISTrain(ScanNetPPDataset_BASETrain):
             class_int = int(class_id)
             sample_name = os.path.basename(sample_path)
             if self.cache:
-                return shared_dict(f"pointcept-{sample_name}")
+                instances.append(shared_dict(f"pointcept-{sample_name}"))
+                continue
+            # 只读 mmap 缓存（/dev/shm/scpp_inst_cache）：不进 Dataset 对象，
+            # spawn 序列化体积为 0，所有 worker 共享同一份页缓存。
+            _shm = os.path.join("/dev/shm/scpp_inst_cache", sample_name)
+            _seg_f = os.path.join(_shm, "seg_%d.npy" % class_int)
+            if os.path.exists(_seg_f):
+                instances.append(
+                    dict(
+                        name=sample_name,
+                        coord=np.load(os.path.join(_shm, "coord.npy"), mmap_mode="r"),
+                        color=np.load(os.path.join(_shm, "color.npy"), mmap_mode="r"),
+                        normal=np.load(os.path.join(_shm, "normal.npy"), mmap_mode="r"),
+                        segment=np.load(_seg_f, mmap_mode="r"),
+                        class_id=np.array(
+                            [self.regis_lookup_array[class_int]], dtype=np.int32
+                        ),
+                    )
+                )
+                continue
             sample = {}
             for file in os.listdir(sample_path):
                 if not file.endswith(".npy"):

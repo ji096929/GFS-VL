@@ -960,6 +960,9 @@ class GFS_VL_Trainer(Trainer):
         if _mode == "entropy_q":
             return self._target_entropy_quantile(
                 ret_dict, input_dict, label, bg_label_mask, seg_logits)
+        if _mode == "global_entropy_q":
+            return self._target_global_entropy_quantile(
+                ret_dict, input_dict, label, bg_label_mask)
 
         prediction = ret_dict["seg_preds"].clone()
         # Filter predictions using prototype similarity
@@ -1066,6 +1069,115 @@ class GFS_VL_Trainer(Trainer):
         label_one_hot[bg_label_mask] = prediction[bg_label_mask]
 
         return label_one_hot
+
+
+    @torch.no_grad()
+    def _target_global_entropy_quantile(self, ret_dict, input_dict, label,
+                                        bg_label_mask):
+        """Cross-scene global EMA entropy quantile filter in strict FP32."""
+        import torch.distributed as dist
+
+        feats = ret_dict.get("all_feats", None)
+        if feats is None:
+            raise RuntimeError("global_entropy_q: ret_dict missing all_feats")
+
+        nb = int(self.cfg.data.num_bases)
+        nn_cls = int(self.cfg.data.num_base_novels) - nb
+        rho = float(getattr(self.cfg, "global_entropy_rho", 0.02))
+        ema = float(getattr(self.cfg, "global_entropy_ema", 0.9))
+
+        with torch.cuda.amp.autocast(enabled=False):
+            W = self.VLM_3D.task_head.cls_head.weight.float()
+            f_norm = torch.nn.functional.normalize(feats.float(), dim=-1)
+            cos_nv = (f_norm @ W[nb:].t()).float()
+            pred = cos_nv.argmax(dim=-1) + nb
+            log_p = torch.nn.functional.log_softmax(cos_nv, dim=-1)
+            ent = -(log_p.exp() * log_p).sum(dim=-1)
+            assert ent.dtype == torch.float32
+
+        eu_bg = ent[bg_label_mask]
+        if eu_bg.numel() > 0:
+            k = max(1, min(int(round(eu_bg.numel() * rho)), eu_bg.numel()))
+            thr_local = eu_bg.kthvalue(k).values.detach().float()
+            has_bg = 1.0
+        else:
+            thr_local = torch.zeros((), dtype=torch.float32, device=ent.device)
+            has_bg = 0.0
+
+        if comm.get_world_size() > 1 and dist.is_initialized():
+            buf = torch.stack([thr_local, torch.tensor(has_bg, dtype=torch.float32, device=ent.device)])
+            dist.all_reduce(buf, op=dist.ReduceOp.SUM)
+            thr_batch = float((buf[0] / buf[1].clamp_min(1.0)).item()) if buf[1].item() > 0 else None
+        else:
+            thr_batch = float(thr_local.item()) if has_bg > 0 else None
+
+        if thr_batch is not None:
+            if not hasattr(self, "_global_ent_thr"):
+                self._global_ent_thr = thr_batch
+            else:
+                self._global_ent_thr = ema * self._global_ent_thr + (1.0 - ema) * thr_batch
+
+        thr = getattr(self, "_global_ent_thr", float("-inf"))
+        keep_mask = bg_label_mask & (ent <= thr)
+
+        out = label.clone()
+        out[keep_mask] = pred[keep_mask]
+
+        # Per-novel-class retention tracker (printed at end of Ep1 and every 5 epochs)
+        if not hasattr(self, "_geq_cls_keep"):
+            self._geq_cls_keep = torch.zeros(nn_cls, dtype=torch.long, device=ent.device)
+            self._geq_cls_cand = torch.zeros(nn_cls, dtype=torch.long, device=ent.device)
+            self._geq_bg_tot = torch.zeros(1, dtype=torch.long, device=ent.device)
+            self._geq_gt_tot = torch.zeros(1, dtype=torch.long, device=ent.device)
+            self._geq_step = 0
+        nv_cand = pred[bg_label_mask] - nb
+        nv_keep = pred[keep_mask] - nb
+        if nv_cand.numel() > 0:
+            self._geq_cls_cand += torch.bincount(nv_cand, minlength=nn_cls)
+        if nv_keep.numel() > 0:
+            self._geq_cls_keep += torch.bincount(nv_keep, minlength=nn_cls)
+        self._geq_bg_tot += int(bg_label_mask.sum().item())
+        self._geq_gt_tot += int((~bg_label_mask).sum().item())
+        self._geq_step += 1
+
+        ep_len = len(self.train_loader) if hasattr(self, "train_loader") else 0
+        if ep_len > 0 and (self._geq_step % ep_len == 0):
+            cur_ep = self._geq_step // ep_len
+            if cur_ep == 1 or (cur_ep % 5 == 0):
+                ck = self._geq_cls_keep.clone()
+                cc = self._geq_cls_cand.clone()
+                bg_t = self._geq_bg_tot.clone()
+                gt_t = self._geq_gt_tot.clone()
+                if comm.get_world_size() > 1 and dist.is_initialized():
+                    dist.all_reduce(ck)
+                    dist.all_reduce(cc)
+                    dist.all_reduce(bg_t)
+                    dist.all_reduce(gt_t)
+                if comm.is_main_process():
+                    tot_k = int(ck.sum().item())
+                    tot_b = int(bg_t.item())
+                    self.logger.info(
+                        "[GlobalEntQ ep=%d] thr=%.6f rho=%.3f keep=%d/%d (%.2f%%) GT=%d"
+                        % (cur_ep, thr, rho, tot_k, tot_b,
+                           100.0 * tot_k / max(tot_b, 1), int(gt_t.item()))
+                    )
+                    if cur_ep == 1:
+                        names = getattr(self.cfg.data, "names", None)
+                        for idx in range(nn_cls):
+                            cid = nb + idx
+                            nm = names[cid] if (names and cid < len(names)) else f"cls{cid}"
+                            k_i = int(ck[idx].item())
+                            c_i = int(cc[idx].item())
+                            self.logger.info(
+                                "  Class_%02d %-15s: keep=%7d / cand=%7d (%5.1f%%)"
+                                % (cid, nm, k_i, c_i, 100.0 * k_i / max(c_i, 1))
+                            )
+            self._geq_cls_keep.zero_()
+            self._geq_cls_cand.zero_()
+            self._geq_bg_tot.zero_()
+            self._geq_gt_tot.zero_()
+
+        return out
 
     @torch.no_grad()
     def _target_entropy_quantile(self, ret_dict, input_dict, label,

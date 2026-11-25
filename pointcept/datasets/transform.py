@@ -818,35 +818,42 @@ class ElasticDistortion(object):
 
     @staticmethod
     def _trilinear_interp(noise, ax, coords):
-        """等价于 RegularGridInterpolator(ax, noise, bounds_error=False, fill_value=0)。
-
-        noise: (N0, N1, N2, C)，ax: 3 个单调 1D 网格，coords: (M, 3)。
-        纯 NumPy 向量化，避免逐点 Python 调用。
-        """
-        shape = np.array(noise.shape[:3])
-        idx = np.empty((coords.shape[0], 3), dtype=np.float64)
+        """float32 + 1D flat index 版三线性插值，等价 RegularGridInterpolator(fill_value=0)。"""
+        s0, s1, s2, C = noise.shape
+        smax = np.array([s0 - 1, s1 - 1, s2 - 1], dtype=np.float32)
+        c = np.asarray(coords, dtype=np.float32)
+        a0 = np.array([ax[d][0] for d in range(3)], dtype=np.float32)
+        step = np.ones(3, dtype=np.float32)
         for d in range(3):
             n = len(ax[d])
-            if n <= 1:
+            if n > 1:
+                step[d] = (ax[d][-1] - ax[d][0]) / (n - 1)
+        idx = (c - a0) / step
+        for d in range(3):
+            if len(ax[d]) <= 1:
                 idx[:, d] = 0.0
-            else:
-                step = (ax[d][-1] - ax[d][0]) / (n - 1)
-                idx[:, d] = (coords[:, d] - ax[d][0]) / step
-        valid = np.all((idx >= 0) & (idx <= shape - 1), axis=1)
-        i0 = np.clip(np.floor(idx).astype(np.int64), 0, shape - 1)
-        i1 = np.clip(i0 + 1, 0, shape - 1)
-        f = np.clip(idx - i0, 0.0, 1.0)
-        out = np.zeros((coords.shape[0], noise.shape[3]), dtype=np.float64)
+        valid = ((idx[:, 0] >= 0) & (idx[:, 0] <= smax[0])
+                 & (idx[:, 1] >= 0) & (idx[:, 1] <= smax[1])
+                 & (idx[:, 2] >= 0) & (idx[:, 2] <= smax[2]))
+        idx_c = np.clip(idx, 0.0, smax)
+        i0 = np.floor(idx_c).astype(np.int32)
+        i1 = np.minimum(i0 + 1, smax.astype(np.int32))
+        f = (idx_c - i0).astype(np.float32)
+        flat = np.ascontiguousarray(noise, dtype=np.float32).reshape(-1, C)
+        st0, st1 = s1 * s2, s2
+        out = np.zeros((c.shape[0], C), dtype=np.float32)
         for dx in (0, 1):
             wx = f[:, 0] if dx else (1.0 - f[:, 0])
-            ix = i1[:, 0] if dx else i0[:, 0]
+            ix = (i1[:, 0] if dx else i0[:, 0]) * st0
             for dy in (0, 1):
                 wy = f[:, 1] if dy else (1.0 - f[:, 1])
-                iy = i1[:, 1] if dy else i0[:, 1]
+                iy = (i1[:, 1] if dy else i0[:, 1]) * st1
+                wxy = wx * wy
+                ixy = ix + iy
                 for dz in (0, 1):
                     wz = f[:, 2] if dz else (1.0 - f[:, 2])
                     iz = i1[:, 2] if dz else i0[:, 2]
-                    out += (wx * wy * wz)[:, None] * noise[ix, iy, iz]
+                    out += (wxy * wz)[:, None] * flat[ixy + iz]
         out[~valid] = 0.0
         return out
 

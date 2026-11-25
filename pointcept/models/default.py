@@ -120,6 +120,15 @@ class RegisTrainSegmentor(nn.Module):
         base_cross=False,
         depth_gate=False,
         detach_cross=False,
+        cross_grad_scale=1.0,
+        cross_linear=False,
+        dec0_ln=True,
+        cross_residual=False,
+        cross_zero_head=False,
+        cross_ent_gate=False,
+        cross_ent_scale=2.0,
+        cross_direct=False,
+        cross_decoupled=False,
         lam_cross=0.0,
         rep_dec0=False,
         ln_only=False,
@@ -134,6 +143,15 @@ class RegisTrainSegmentor(nn.Module):
         self.base_cross = bool(base_cross)
         self.depth_gate = bool(depth_gate)
         self.detach_cross = bool(detach_cross)
+        self.cross_grad_scale = float(cross_grad_scale)
+        self.cross_linear = bool(cross_linear)
+        self.dec0_ln = bool(dec0_ln)
+        self.cross_residual = bool(cross_residual)
+        self.cross_zero_head = bool(cross_zero_head)
+        self.cross_ent_gate = bool(cross_ent_gate)
+        self.cross_ent_scale = float(cross_ent_scale)
+        self.cross_direct = bool(cross_direct)
+        self.cross_decoupled = bool(cross_decoupled)
         self.lam_cross = float(lam_cross)
         self.rep_dec0 = bool(rep_dec0)
         self.ln_only = bool(ln_only)
@@ -156,33 +174,75 @@ class RegisTrainSegmentor(nn.Module):
                 nn.Linear(self.mlp_hidden, num_novel_classes, bias=False),
             )
             self.novel_seg_head = None
-        elif self.cross_layers:
+        elif self.cross_layers and self.cross_residual:
             assert len(cross_dims) == len(self.cross_layers)
-            self.dec0_norm = nn.LayerNorm(backbone_out_channels)
-            if self.rep_dec0:
-                # dec0_rep3 对照：dec0 复制两份走独立投影，
-                # 结构与 sym_xl 完全相同，只是特征源只有 dec0
-                self.rep_norms = nn.ModuleList(
-                    [nn.LayerNorm(backbone_out_channels)
-                     for _ in self.cross_layers])
-                self.rep_projs = nn.ModuleList(
-                    [nn.Linear(backbone_out_channels, cross_dim)
-                     for _ in self.cross_layers])
-                self.rep_outs = nn.ModuleList(
-                    [nn.LayerNorm(cross_dim) for _ in self.cross_layers])
+            assert not self.base_cross and not self.rep_dec0 and not self.depth_gate
             self.cross_norms = nn.ModuleDict()
             self.cross_projs = nn.ModuleDict()
-            self.cross_outs = nn.ModuleDict()
+            self.cross_res_outs = nn.ModuleDict()
             for s, c in zip(self.cross_layers, cross_dims):
                 self.cross_norms[str(s)] = nn.LayerNorm(c)
                 self.cross_projs[str(s)] = nn.Linear(c, cross_dim)
-                self.cross_outs[str(s)] = nn.LayerNorm(cross_dim)
-            novel_in = backbone_out_channels + cross_dim * len(
-                self.cross_layers
-            )
+                out_lin = nn.Linear(cross_dim, backbone_out_channels, bias=False)
+                nn.init.zeros_(out_lin.weight)
+                self.cross_res_outs[str(s)] = out_lin
             self.novel_seg_head = nn.Linear(
-                novel_in, num_novel_classes, bias=False
+                backbone_out_channels, num_novel_classes, bias=False
             )
+        elif self.cross_layers:
+            assert len(cross_dims) == len(self.cross_layers)
+            if self.cross_direct:
+                assert self.cross_zero_head and not self.rep_dec0 and not self.depth_gate
+                self._cross_dims = tuple(int(c) for c in cross_dims)
+                c_sum = int(sum(self._cross_dims))
+                novel_in = backbone_out_channels
+                self.novel_seg_head = nn.Linear(
+                    backbone_out_channels, num_novel_classes, bias=False
+                )
+                self.novel_cross_head = nn.Linear(
+                    c_sum, num_novel_classes, bias=False
+                )
+                nn.init.zeros_(self.novel_cross_head.weight)
+            else:
+                if self.dec0_ln and not self.cross_zero_head:
+                    self.dec0_norm = nn.LayerNorm(backbone_out_channels)
+                if self.rep_dec0:
+                    # dec0_rep3 对照：dec0 复制两份走独立投影，
+                    # 结构与 sym_xl 完全相同，只是特征源只有 dec0
+                    self.rep_norms = nn.ModuleList(
+                        [nn.LayerNorm(backbone_out_channels)
+                         for _ in self.cross_layers])
+                    self.rep_projs = nn.ModuleList(
+                        [nn.Linear(backbone_out_channels, cross_dim)
+                         for _ in self.cross_layers])
+                    self.rep_outs = nn.ModuleList(
+                        [nn.LayerNorm(cross_dim) for _ in self.cross_layers])
+                self.cross_norms = nn.ModuleDict()
+                self.cross_projs = nn.ModuleDict()
+                self.cross_outs = nn.ModuleDict()
+                for s, c in zip(self.cross_layers, cross_dims):
+                    self.cross_norms[str(s)] = nn.LayerNorm(c)
+                    self.cross_projs[str(s)] = nn.Linear(c, cross_dim)
+                    self.cross_outs[str(s)] = nn.LayerNorm(cross_dim)
+                if self.cross_zero_head:
+                    assert not self.rep_dec0 and not self.depth_gate
+                    novel_in = backbone_out_channels
+                    self.novel_seg_head = nn.Linear(
+                        backbone_out_channels, num_novel_classes, bias=False
+                    )
+                    self.novel_cross_head = nn.Linear(
+                        cross_dim * len(self.cross_layers),
+                        num_novel_classes,
+                        bias=False,
+                    )
+                    nn.init.zeros_(self.novel_cross_head.weight)
+                else:
+                    novel_in = backbone_out_channels + cross_dim * len(
+                        self.cross_layers
+                    )
+                    self.novel_seg_head = nn.Linear(
+                        novel_in, num_novel_classes, bias=False
+                    )
         elif self.ln_only:
             self.novel_seg_head = nn.Sequential(
                 nn.LayerNorm(backbone_out_channels),
@@ -195,8 +255,9 @@ class RegisTrainSegmentor(nn.Module):
 
         if self.base_cross:
             assert self.cross_layers
+            _bc_in = int(sum(cross_dims)) if self.cross_direct else cross_dim * len(self.cross_layers)
             self.base_cross_head = nn.Linear(
-                cross_dim * len(self.cross_layers),
+                _bc_in,
                 num_base_classes,
                 bias=False,
             )
@@ -288,23 +349,47 @@ class RegisTrainSegmentor(nn.Module):
         return self.decorr_weight * loss
 
     def _cross_projs(self, feat):
-        ln0 = self.dec0_norm(feat.float())
+        if self.cross_direct:
+            projs = []
+            for s in self.cross_layers:
+                _h = self._to_full(s).float()
+                if self.detach_cross:
+                    _h = _h.detach()
+                elif self.cross_grad_scale != 1.0:
+                    _g = self.cross_grad_scale
+                    _h = _g * _h + (1.0 - _g) * _h.detach()
+                _h = torch.nn.functional.layer_norm(_h, (_h.shape[-1],)) * (
+                    (self.backbone_out_channels / float(_h.shape[-1])) ** 0.5
+                )
+                projs.append(_h)
+            return feat.float(), projs
+        ln0 = self.dec0_norm(feat.float()) if (self.dec0_ln and not self.cross_zero_head) else feat.float()
         projs = []
         if self.rep_dec0:
             for i in range(len(self.cross_layers)):
                 _h = feat.float()
                 if self.detach_cross:
                     _h = _h.detach()
+                elif self.cross_grad_scale != 1.0:
+                    _g = self.cross_grad_scale
+                    _h = _g * _h + (1.0 - _g) * _h.detach()
                 h = self.rep_norms[i](_h)
-                h = torch.nn.functional.gelu(self.rep_projs[i](h))
+                h = self.rep_projs[i](h)
+                if not self.cross_linear:
+                    h = torch.nn.functional.gelu(h)
                 projs.append(self.rep_outs[i](h))
             return ln0, projs
         for s in self.cross_layers:
             _h = self._to_full(s).float()
             if self.detach_cross:
                 _h = _h.detach()
+            elif self.cross_grad_scale != 1.0:
+                _g = self.cross_grad_scale
+                _h = _g * _h + (1.0 - _g) * _h.detach()
             h = self.cross_norms[str(s)](_h)
-            h = torch.nn.functional.gelu(self.cross_projs[str(s)](h))
+            h = self.cross_projs[str(s)](h)
+            if not self.cross_linear:
+                h = torch.nn.functional.gelu(h)
             projs.append(self.cross_outs[str(s)](h))
         if self.depth_gate:
             g = torch.sigmoid(
@@ -314,6 +399,7 @@ class RegisTrainSegmentor(nn.Module):
         return ln0, projs
 
     def forward(self, input_dict):
+        feat_fused = None
         try:
             point = Point(input_dict)
             point = self.backbone(point)
@@ -331,26 +417,93 @@ class RegisTrainSegmentor(nn.Module):
                 novel_seg_logits = self.novel_mlp(
                     feat.float()
                 ).to(feat.dtype)
+            elif self.cross_layers and self.cross_residual:
+                delta = 0.0
+                for s in self.cross_layers:
+                    _h = self._to_full(s).float()
+                    if self.detach_cross:
+                        _h = _h.detach()
+                    elif self.cross_grad_scale != 1.0:
+                        _g = self.cross_grad_scale
+                        _h = _g * _h + (1.0 - _g) * _h.detach()
+                    h = self.cross_norms[str(s)](_h)
+                    h = self.cross_projs[str(s)](h)
+                    if not self.cross_linear:
+                        h = torch.nn.functional.gelu(h)
+                    delta = delta + self.cross_res_outs[str(s)](h)
+                feat_fused = feat + delta.to(feat.dtype)
+                base_seg_logits = self.seg_head(feat_fused)
+                novel_seg_logits = self.novel_seg_head(feat_fused)
             elif self.cross_layers:
                 ln0, projs = self._cross_projs(feat)
-                novel_in = torch.cat([ln0] + projs, dim=1).to(feat.dtype)
-                novel_seg_logits = self.novel_seg_head(novel_in)
-                if self.base_cross:
-                    _cf = torch.cat(projs, dim=1).to(feat.dtype)
+                _cf = torch.cat(projs, dim=1).to(feat.dtype)
+                _cmode = ""
+                if self.cross_zero_head:
+                    _cmode = "" if self.training else os.environ.get("GFS_CROSS_MODE", "")
+                    _nd0 = self.novel_seg_head(feat)
+                    _cn = self.novel_cross_head(_cf)
+                    if self.training and self.cross_decoupled and self.base_cross:
+                        _bc = self.base_cross_head(_cf)
+                        novel_seg_logits = _nd0
+                        cross_logits = torch.cat([_bc, _cn], dim=1)
+                    elif _cmode and self.base_cross:
+                        _bc = self.base_cross_head(_cf)
+                        if _cmode == "z0_only":
+                            novel_seg_logits = _nd0
+                        elif _cmode == "z2_only":
+                            base_seg_logits = _bc
+                            novel_seg_logits = _cn
+                        elif _cmode == "prob05":
+                            _nb = base_seg_logits.shape[1]
+                            _z0 = torch.cat([base_seg_logits, _nd0], dim=1).float()
+                            _z2 = torch.cat([_bc, _cn], dim=1).float()
+                            _f = (0.67 * torch.softmax(_z0, dim=1) + 0.33 * torch.softmax(_z2, dim=1)).clamp_min(1e-8).log().to(feat.dtype)
+                            base_seg_logits, novel_seg_logits = _f[:, :_nb], _f[:, _nb:]
+                        elif _cmode == "ent_prob":
+                            _nb = base_seg_logits.shape[1]
+                            _z0 = torch.cat([base_seg_logits, _nd0], dim=1).float()
+                            _z2 = torch.cat([_bc, _cn], dim=1).float()
+                            _p0 = torch.softmax(_z0, dim=1)
+                            _H = -(_p0 * _p0.clamp_min(1e-8).log()).sum(dim=1, keepdim=True)
+                            _g = 1.0 - torch.exp(-_H)
+                            _f = (_p0 + _g * torch.softmax(_z2, dim=1)).clamp_min(1e-8).log().to(feat.dtype)
+                            base_seg_logits, novel_seg_logits = _f[:, :_nb], _f[:, _nb:]
+                        else:
+                            raise ValueError(f"Unknown GFS_CROSS_MODE={_cmode}")
+                    elif self.cross_ent_gate and self.base_cross:
+                        _bc = self.base_cross_head(_cf)
+                        with torch.no_grad():
+                            _z0 = torch.cat([base_seg_logits, _nd0], dim=1).float()
+                            _p0 = torch.softmax(_z0, dim=1)
+                            _H = -(_p0 * _p0.clamp_min(1e-8).log()).sum(dim=1, keepdim=True)
+                            _g = (self.cross_ent_scale * (1.0 - torch.exp(-_H))).to(feat.dtype)
+                        base_seg_logits = base_seg_logits + _g * _bc
+                        novel_seg_logits = _nd0 + _g * _cn
+                        if self.training and self.lam_cross > 0:
+                            cross_logits = torch.cat([_bc, _cn], dim=1)
+                    else:
+                        novel_seg_logits = _nd0 + _cn
+                else:
+                    novel_in = torch.cat([ln0] + projs, dim=1).to(feat.dtype)
+                    novel_seg_logits = self.novel_seg_head(novel_in)
+                if self.base_cross and not (self.cross_zero_head and (self.cross_ent_gate or _cmode or (self.training and self.cross_decoupled))):
                     _bc = self.base_cross_head(_cf)
                     base_seg_logits = base_seg_logits + _bc
                     # L_cross: 在纯跨层子空间做辅助监督，消除 base_cross_head
                     # 被 seg_head(dec0) 遮住梯度的问题（推理时不用）。
                     if self.training and self.lam_cross > 0:
-                        _boc = self.backbone_out_channels
-                        assert _cf.shape[1] == (
-                            self.novel_seg_head.weight.shape[1] - _boc
-                        ), "cross feat dim mismatch: %d vs %d" % (
-                            _cf.shape[1],
-                            self.novel_seg_head.weight.shape[1] - _boc)
-                        _cn = torch.nn.functional.linear(
-                            _cf, self.novel_seg_head.weight[:, _boc:]
-                        )
+                        if self.cross_zero_head:
+                            _cn = self.novel_cross_head(_cf)
+                        else:
+                            _boc = self.backbone_out_channels
+                            assert _cf.shape[1] == (
+                                self.novel_seg_head.weight.shape[1] - _boc
+                            ), "cross feat dim mismatch: %d vs %d" % (
+                                _cf.shape[1],
+                                self.novel_seg_head.weight.shape[1] - _boc)
+                            _cn = torch.nn.functional.linear(
+                                _cf, self.novel_seg_head.weight[:, _boc:]
+                            )
                         cross_logits = torch.cat([_bc, _cn], dim=1)
                 if self.training and self.decorr_weight > 0:
                     decorr_loss = self._decorr(ln0, projs)
@@ -366,6 +519,8 @@ class RegisTrainSegmentor(nn.Module):
                     self._cr_last = {"dec0": feat.detach()}
                     for s in self.cross_layers:
                         self._cr_last["dec%d" % s] = self._to_full(s).detach()
+                    if feat_fused is not None:
+                        self._cr_last["feat_fused"] = feat_fused.detach()
                 except Exception:
                     self._cr_last = {}
             # 必须及时清掉：缓存的中间张量带 grad_fn，留着会跨 iter 泄漏显存
