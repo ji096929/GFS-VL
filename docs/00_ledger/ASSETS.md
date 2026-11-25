@@ -141,3 +141,4 @@
 | `docs/01_cross_layer/OVERNIGHT_CUT2_REPORT.md` | CUT2 扩展实验汇总 | — |
 | `docs/01_cross_layer/WEEK1_ZERO_TRAIN_2026-11-24.md` | 第一周零训练诊断（X1/X3/X5/X8） | `dec0` 有效秩在 9 个实验里都锁在 10–11.5；`sym` 的 dec0 跨 seed 余弦 0.98（base 0.81） |
 | `docs/01_cross_layer/XL1_GRADIENT_HIGHWAY_2026-11-24.md` | **XL-1 结案：跨层增益来自反向梯度捷径** | `detach` HM 0.4089 < base 0.4241 < sym 0.4381；ep20 时 dec2 的梯度 81.4% 来自跨层支路；detach 后三层探针全最低 |
+| `docs/01_cross_layer/XL2_WAVE3_AND_GEQ_2026-11-25.md` | **Wave 3 + 全局熵分位归档**：`global_entropy_q` 机制、14 个跨层消融、cross-lr 三局、两处性能优化 | **`geq02` HM 0.3475（5-shot 最强，+4.09 vs base）**；跨层消融全线未超基线；`m5_symzero` 不是 base 的空对照（结构来自 sym_xl）；transform 优化 4.5× |
