@@ -103,6 +103,34 @@
 
 ---
 
+## 五之二、伪标签筛选词（2026-11-25 ~ 26 新增，全部为在线 VLM，不读 `GFS_OFFLINE_PL`）
+
+> 这一批命名是实验过程中随手拼的，**没有统一规则**：有的是英文取首段字母 + 参数，
+> 有的是消融编号。下表逐条对应到 config 里的真名。
+> **最容易踩的坑：`dualeye85` 里的 85 是分位数，保留比例是 0.15；而 `entq10` / `d2r10`
+> 里的 10 是保留百分比。同一个数字在两套命名里方向相反。**
+
+| 缩写 | config 真名 | 中文含义 |
+|---|---|---|
+| `ps_ai` / `psai` | `pl_mode='ps_ai'` | 官方原型筛选（余弦 ≥ 0.6）+ 自适应填充（余弦 ≥ 0.95） |
+| `entq10` | `pl_mode='entropy_q'`，`entropy_keep_rho=0.1` | **每类**保留熵最低的 10% |
+| `geq02` / `geq05` | `pl_mode='global_entropy_q'`，`global_entropy_rho=0.02/0.05` | **全局**保留熵最低的 2% / 5%，动态分位 + EMA 0.9 |
+| `dualeye85` | `pl_mode='dual_eye_and'`，`dual_eye_q1=q2=0.15` | 两视角各取前 15%，取交集 |
+| `dualeye90` | 同上，`dual_eye_q1=q2=0.10` | 两视角各取前 10%，取交集 |
+| `mnv` | `dual_eye_score='margin_nv'` | 第二层特征里，对被判新类的相似度要高于其他任何新类 |
+| `h1` | `pl_mode='dual_eye_h1'` | 训练前 30 batch 校准：全局大津阈值 + 每类熵前 10% + 新类边际 > 0 |
+| `m1vote` | `pl_mode='dual_eye_m1_vote'` | 全类别取最大值 + 第二层边际投票 |
+| `d2r10` | `pl_mode='psai_dec2_rank'`，`dual_eye_rank_alpha=0.10` | PS/AI 全保留后，第二层在 N_novel 内部排名进前 10% 才留 |
+| `gce07` | `pl_mode='ps_ai'`，`pl_gce_q=0.7` | 伪标签点改用广义交叉熵 `(1-p^q)/q`，q=0.7；GT 点仍是普通 CE |
+| `m5` | `cross_zero_head=True`，`cross_layers=(2,)` | 新类头只吃末层；基类头额外加第二层跨层。**只置零新类侧的跨层，基类侧是活的** |
+
+**`m1`~`m11b` 是 Wave3 结构消融的编号**，不是方案名，见
+`docs/01_cross_layer/XL2_WAVE3_AND_GEQ_2026-11-25.md` §1。
+
+**`Sc++` = ScanNet++，`Sc200` = ScanNet200，`k1`/`k5` = 1-shot / 5-shot，`s42/s7/s13` = 随机种子。**
+
+---
+
 ## 六、冻结 / 主干词
 
 | 词 | config 参数 | 含义 |
