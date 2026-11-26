@@ -133,7 +133,7 @@
 
 ---
 
-## 八、跨层诊断文档索引
+## 八、跨层 / 伪标签诊断文档索引
 
 | 文档 | 内容 | 关键结论 |
 |---|---|---|
@@ -143,3 +143,4 @@
 | `docs/01_cross_layer/XL1_GRADIENT_HIGHWAY_2026-11-24.md` | **XL-1 结案：跨层增益来自反向梯度捷径** | `detach` HM 0.4089 < base 0.4241 < sym 0.4381；ep20 时 dec2 的梯度 81.4% 来自跨层支路；detach 后三层探针全最低 |
 | `docs/01_cross_layer/XL2_WAVE3_AND_GEQ_2026-11-25.md` | **Wave 3 + 全局熵分位归档**：`global_entropy_q` 机制、14 个跨层消融、cross-lr 三局、两处性能优化 | **`geq02` HM 0.3475（5-shot 最强，+4.09 vs base）**；跨层消融全线未超基线；`m5_symzero` 不是 base 的空对照（结构来自 sym_xl）；transform 优化 4.5× |
 | `docs/01_cross_layer/OCSB_BRIDGE_DECLINE_2026-11-26.md` | **跨层 × 3D-OCSB 桥梁判据失败补档**：B/C/Neg 定义、四层 AUC 表、阈值扫描、口径备注（dec2 维度 64/128 之争、Base 原型 placeholder） | **AUC 0.94（dec1+Base 拒斥）但 thr=0.9 时 Precision 仅 3.1–3.3%**；唯一一次跨层在 OCSB 判据上赢基线，兑不出来；XL-1 证明那 0.92 来自梯度倒灌而非前向读出 |
+| `docs/03_pseudo_label/PL_FILTER_WAVE2_2026-11-26.md` | **伪标签筛选第二轮**：六种方案（entq10/geq02/dualeye*/h1/m1vote/psai_dec2_rank）+ GCE/ELR 两条 loss 腿，两库两 shot 共 21 局；含 ELR 事故归因 | **ScanNet++ 5-shot 最强 `psai_d2r10_s7` HM 0.3647（+4.58）**；但单 seed 方差达 4–5 分，三个 seed 的只有 `dualeye90_mnv`（均值 0.3422，3/3 胜）；**1-shot 只有 `m1vote` 站住（+2.04），`mnv` 崩 −4.57**；**ELR 因伪标签过拟合导致 `log(1-dot)→−9`、loss 变负发散** |
