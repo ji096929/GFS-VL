@@ -654,6 +654,75 @@ class GFS_MultiregTrain_PreciseEvaluator(HookBase):
         self.mean_mIoUs = np.zeros(4)
         self.mean_iou_list = []
 
+    def after_epoch(self):
+        cfg = self.trainer.cfg
+        interval = int(getattr(cfg, "mid_eval_interval", 0) or 0)
+        ep = int(self.trainer.epoch) + 1
+        if interval <= 0 or (ep % interval != 0) or (ep >= int(self.trainer.max_epoch)):
+            return
+        import time
+        from functools import partial
+        from pointcept.datasets import build_dataset, point_collate_fn
+        t0 = time.time()
+        if self.trainer.val_loader is not None:
+            val_loader = self.trainer.val_loader
+        else:
+            if not hasattr(self, "_mid_val_loader"):
+                val_data = build_dataset(cfg.data.val)
+                val_sampler = (
+                    torch.utils.data.distributed.DistributedSampler(val_data, shuffle=False)
+                    if comm.get_world_size() > 1
+                    else None
+                )
+                self._mid_val_loader = torch.utils.data.DataLoader(
+                    val_data,
+                    batch_size=1,
+                    shuffle=False,
+                    num_workers=min(4, int(cfg.num_worker_per_gpu)),
+                    pin_memory=True,
+                    sampler=val_sampler,
+                    collate_fn=partial(point_collate_fn, mix_prob=0),
+                )
+            val_loader = self._mid_val_loader
+
+        nb = int(cfg.data.num_bases)
+        nc = int(cfg.data.num_base_novels)
+        ignore_idx = int(cfg.data.ignore_index)
+        inter = torch.zeros(nc, dtype=torch.float64, device="cuda")
+        union = torch.zeros(nc, dtype=torch.float64, device="cuda")
+        target_cnt = torch.zeros(nc, dtype=torch.float64, device="cuda")
+        try:
+            self.trainer.model.eval()
+            with torch.no_grad():
+                for input_dict in val_loader:
+                    for key, val in input_dict.items():
+                        if isinstance(val, torch.Tensor):
+                            input_dict[key] = val.cuda(non_blocking=True)
+                    output_dict = self.trainer.model(input_dict)
+                    pred = output_dict["seg_logits"].max(1)[1]
+                    seg = input_dict["segment"]
+                    i_k, u_k, t_k = intersection_and_union_gpu(pred, seg, nc, ignore_idx)
+                    inter += i_k
+                    union += u_k
+                    target_cnt += t_k
+            if comm.get_world_size() > 1 and dist.is_initialized():
+                dist.all_reduce(inter)
+                dist.all_reduce(union)
+                dist.all_reduce(target_cnt)
+            if comm.is_main_process():
+                iou = (inter / (union + 1e-10)).cpu().numpy()
+                mIoU = float(iou.mean())
+                base_iou = float(iou[:nb].mean())
+                novel_iou = float(iou[nb:nc].mean())
+                hm = 2.0 * base_iou * novel_iou / (base_iou + novel_iou + 1e-10)
+                self.trainer.logger.info(
+                    f"[MidEval ep={ep}] mIoU={mIoU:.4f} Base={base_iou:.4f} "
+                    f"Novel={novel_iou:.4f} HM={hm:.4f} ({time.time() - t0:.1f}s)"
+                )
+        finally:
+            self.trainer.model.train()
+            torch.cuda.empty_cache()
+
     def after_train(self):
         self.trainer.logger.info(
             ">>>>>>>>>>>>>>>> Start Precise Evaluation >>>>>>>>>>>>>>>>"
