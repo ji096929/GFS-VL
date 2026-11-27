@@ -119,7 +119,7 @@ grep -c 'sparseunet32_636.pth to GPU' exp/<dataset>/<run>/train.log
 **离线缓存与 shot 数绑定**：`online_pl_w_uniform` 是用 **1-shot 原型**生成的。
 1-shot 训练读它匹配；5-shot 训练读它等于白扔 4 个 support（`CUT2_EXT_REPORT.md:224` 已记录）。
 
-完整审计见 `docs/00_ledger/PL_MODE_AUDIT_2026-11-27.md`。
+完整审计见 `AUDIT_2026-11-27.md`。
 
 证据：`pointcept/engines/train.py:373,577-584,880`；`pointcept/datasets/scannet.py:423`
 
