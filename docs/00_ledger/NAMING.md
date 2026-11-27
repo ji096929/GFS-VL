@@ -97,7 +97,29 @@
 
 **口径缺口（必须知道）**：`GFS_OFFLINE_PL` **只存在于启动命令**，`config.py` 和 `train.log` 都不记录。
 43 个离线 PL 实验的实际 PL 版本目前只能靠目录名 + `exp_reports/RUNBOOK.md` 推断。
-**这是当前资产里最大的不可复现点**，后续实验必须在 config 里写死 PL 路径或把路径打印进日志。
+
+**2026-11-27 补：判据已经找到，不再靠猜。**
+
+```bash
+# 10 秒定性任意一个 run
+grep -c 'sparseunet32_636.pth to GPU' exp/<dataset>/<run>/train.log
+# 1 = 在线（VLM 被加载），0 = 离线（VLM_3D = None）
+```
+
+原理：`train.py:373` 的 `if not os.environ.get("GFS_OFFLINE_PL", "")` 是唯一分叉点，
+离线时整个 3D VLM 都不构建，日志里不可能出现 `network_template.py` 的输出。
+
+**实测分布（2026-11-27 全量扫描）：**
+
+| 数据集 | 在线 | 离线 | 说明 |
+|---|---|---|---|
+| **ScanNet++** | **97** | **0** | `scannetpp.py` 没有 `GFS_OFFLINE_PL` 分支，物理上不支持 |
+| **ScanNet200** | **21** | **85** | 混用严重 |
+
+**离线缓存与 shot 数绑定**：`online_pl_w_uniform` 是用 **1-shot 原型**生成的。
+1-shot 训练读它匹配；5-shot 训练读它等于白扔 4 个 support（`CUT2_EXT_REPORT.md:224` 已记录）。
+
+完整审计见 `docs/00_ledger/PL_MODE_AUDIT_2026-11-27.md`。
 
 证据：`pointcept/engines/train.py:373,577-584,880`；`pointcept/datasets/scannet.py:423`
 
