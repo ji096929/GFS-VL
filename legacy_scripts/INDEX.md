@@ -107,7 +107,7 @@
 
 ## 05_sonata Sonata 接入与探针（19）
 
-对应报告：docs/05_sonata/SONATA_SMALL_INTEGRATION.md
+对应报告：docs/_archive/SONATA_SMALL_INTEGRATION.md
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
@@ -133,7 +133,7 @@
 
 ## 03_signal_gate 门控与信号探测（3）
 
-对应报告：docs/04_ontr_frozen/DAYTIME_ONTR_REPORT*.md
+对应报告：docs/_archive/DAYTIME_ONTR_REPORT*.md
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
@@ -143,7 +143,7 @@
 
 ## 04_pseudo_label 伪标签生成与筛选（18）
 
-对应报告：docs/03_pseudo_label/margin_filter_experiment.md
+对应报告：docs/_archive/margin_filter_experiment.md
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
@@ -243,7 +243,7 @@
 
 ## 07_reproduce 校准与复现（6）
 
-对应报告：docs/legacy/SESSION_STATE.md
+对应报告：docs/_archive/SESSION_STATE.md
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
@@ -256,7 +256,7 @@
 
 ## 08_train_eval 训练与评估入口（9）
 
-对应报告：docs/07_shot_protocol/OVERNIGHT_ICCV_REPORT.md
+对应报告：docs/_archive/OVERNIGHT_ICCV_REPORT.md
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|
@@ -272,7 +272,7 @@
 
 ## 09_launchers 启动与运维脚本（含 PL 口径证据）（20）
 
-对应报告：docs/legacy/SESSION_STATE.md（**含 GFS_OFFLINE_PL 口径证据**）
+对应报告：docs/_archive/SESSION_STATE.md（**含 GFS_OFFLINE_PL 口径证据**）
 
 | 脚本 | 修改日 | 说明 |
 |---|---|---|

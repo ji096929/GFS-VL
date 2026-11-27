@@ -128,7 +128,7 @@
 |---|---|
 | `exp/<ds>/<run>/train.log` | 每个实验的完整训练日志（含全量 config dump、OOM/Traceback） |
 | `exp/<ds>/<run>/test.log` | 离线重评日志（若有） |
-| `/data01/jh/data/*.log` | 启动脚本的重定向输出（命名与 run 不一定一致，见 `exp_reports/ASSET_README.md` 的映射表） |
+| `/data01/jh/data/*.log` | 启动脚本的重定向输出（命名与 run 不一定一致，见 `docs/_archive/ASSET_README.md` 的映射表） |
 | `exp_reports/results_all.json` | 17 个 CUT2 run 的汇总指标 + 57 类 IoU |
 | `exp_reports/ckpt_manifest.txt` | 175 条权重路径与大小 |
 | `exp_reports/logs_snapshot_20261120.tar.gz` | 48 份日志快照（899 M，在 OCSB 仓库/网盘） |

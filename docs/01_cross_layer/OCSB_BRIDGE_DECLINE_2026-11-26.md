@@ -1,6 +1,6 @@
 # 跨层 × 3D-OCSB 桥梁判据：失败归档（2026-11-26 补档）
 
-> **原始记录**：`docs/legacy/SESSION_STATE.md` §8.3（2026-11-21 00:25 快照）
+> **原始记录**：`docs/_archive/SESSION_STATE.md` §8.3（2026-11-21 00:25 快照）
 > **探针脚本**：`tools/probe_omission.py`（253 行；副本在 `legacy_scripts/ps_diag/probe_omission.py`）
 > **状态**：**已砍**。本文档把当时只有一张表 + 一句「已砍」的结论补成可复核的完整档案。
 

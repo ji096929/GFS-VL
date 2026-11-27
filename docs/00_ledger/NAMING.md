@@ -78,7 +78,7 @@
 | `a080` / `a090` | `novel_logit_scale = 0.8 / 0.9`，推理前对 novel logits 乘性缩放 | config 顶层 |
 | `XLu` / `BASEu` / `A2` | 均匀权重 PL（`online_pl_w_uniform`），u = uniform | `RUNBOOK.md` |
 | `offline_A` / `offline_B` | 旧版离线 PL 的 A/B 两套（`gen_ab.py`） | `SERVER_CACHE_INDEX.md` |
-| `regis1` | 官方 Model Zoo 权重（`epoch 20`, `optimizer.step 1999`） | `ASSET_README.md` |
+| `regis1` | 官方 Model Zoo 权重（`epoch 20`, `optimizer.step 1999`） | `docs/_archive/ASSET_README.md` |
 
 **`a080/a090` 的额外事实**：这两个实验的 config 里 `weight` 指向 `sym_xl_k5_s42/model/regis1_model_last.pth`，`seed=22515937`，即**从 sym_xl_k5 权重续训 20 epoch**，不是从头训。
 
@@ -191,4 +191,4 @@ grep -c 'sparseunet32_636.pth to GPU' exp/<dataset>/<run>/train.log
 | `sym_xl_s42/s7/s13` | 同名 | CE 口径的对称跨层 |
 | `sym_lovasz_s42/s7/s13` | 同名 | **当前主方法的三个 seed** |
 
-来源：`exp_reports/ASSET_README.md`（2026-11-20 冻结）
+来源：`docs/_archive/ASSET_README.md`（2026-11-20 冻结）
