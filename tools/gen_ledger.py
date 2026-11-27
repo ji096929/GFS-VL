@@ -97,8 +97,8 @@ def parse_config(path):
 
 
 def parse_log(path):
-    """返回 (指标列表, 是否有异常堆栈)。"""
-    vals, err = [], False
+    """返回 (指标列表, 是否有异常堆栈, 是否在线)。"""
+    vals, err, online = [], False, False
     try:
         with open(path, encoding="utf-8", errors="ignore") as f:
             for line in f:
@@ -107,9 +107,11 @@ def parse_log(path):
                     vals.append([float(x) for x in m.groups()])
                 elif ERR_PAT.search(line):
                     err = True
+                if "sparseunet32_636.pth to GPU" in line:
+                    online = True
     except OSError:
         pass
-    return vals, err
+    return vals, err, online
 
 
 def parse_ckpt(model_dir):
@@ -247,14 +249,14 @@ def collect(root):
             if not os.path.isdir(d):
                 continue
             cfg = parse_config(os.path.join(d, "config.py"))
-            tr, tr_err = parse_log(os.path.join(d, "train.log"))
-            te, te_err = parse_log(os.path.join(d, "test.log"))
+            tr, tr_err, tr_on = parse_log(os.path.join(d, "train.log"))
+            te, te_err, te_on = parse_log(os.path.join(d, "test.log"))
             allv = te or tr          # test.log 优先（离线重评）
             jit_last = allv[-1] if allv else None
             jit_best = max(allv, key=lambda v: v[3]) if allv else None
             n_val = len(tr) + len(te)
 
-            dv, dv_err = parse_log(os.path.join(DET_ROOT, name, "run.log"))
+            dv, dv_err, _ = parse_log(os.path.join(DET_ROOT, name, "run.log"))
             det = dv[-1] if dv else None
 
             ck = parse_ckpt(os.path.join(d, "model"))
@@ -283,6 +285,8 @@ def collect(root):
                 jitter_last=jit_last, jitter_best=jit_best,
                 det=det, ckpt=ck, status=status,
                 has_err=bool(tr_err or te_err),
+                online=(tr_on or te_on),
+                has_log=bool(tr or te),
             ))
     return rows
 
@@ -374,6 +378,9 @@ def render_md(rows):
                 "xl", "gated", "ortho", "mlp_dec0", "rep3", "detach", "cos", "lnonly"))
             loss = "/".join(t for t in tags if t in ("lovasz", "la", "ce"))
             pl = "/".join(t.replace("pl:", "") for t in tags if t.startswith("pl:"))
+            _mode = "在线" if r["online"] else ("离线" if r["has_log"] else "")
+            if _mode:
+                pl = (pl + "/" + _mode) if pl else _mode
             ck = "%d个/%.1fG" % (r["ckpt"]["n"], r["ckpt"]["size_gb"]) if r["ckpt"]["n"] else "—"
             out.append("| `%s` | %s | %s / %s | %s | %s | %s | %s | %s | %s | %s |" % (
                 r["name"], r["dataset"], struct or "—", loss or "—", pl or "—",
