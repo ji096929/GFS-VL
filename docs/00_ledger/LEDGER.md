@@ -5,13 +5,13 @@
 > **口径**：`抖动` = train.log 最后一次 val（`shuffle_orders` 随机，同权重两次可差 0.5–0.8）；
 > `确定性` = `det_eval/` 重评（已修 `shuffle_orders`，两次评估 0.0000 误差）。**跨实验比较只用确定性口径。**
 
-实验目录 **228** 个：done 197 / unevaluated 16 / incomplete 2 / failed 1 / invalid 7 / infra 5。
+实验目录 **228** 个：done 205 / unevaluated 8 / incomplete 2 / failed 1 / invalid 7 / infra 5。
 
 确定性命中 6 个（`det_eval/`）。
 
 - **invalid**（实现有 bug，结果不可用，7）：`support_base_s42`、`support_ontr_linear_s42`、`support_ontr_s42_BUG_vlm`、`support_rep3_s42`、`support_sym_s42`、`support_xl_linear_s42`、`support_xl_s42_BUG_vlm`
 - **failed**（训练/评估崩溃，1）：`sc200_k1_XLu_s7`
-- **unevaluated**（有权重但从未评估，16）：`gated_sym_xl_s7`、`sc200_k1_BASEu_s42`、`sc200_k1_base_s42`、`sc200_k1_m5_elr_s7`、`sc200_k1_m5_s13`、`sc200_k1_m5_s7`、`sc200_k5_m5_s13`、`sc200_k5_m5_s42`、`sc200_k5_m5_s7`、`sonata_small_stage1a`、`sym_lovasz_5split_s42`、`sym_xl_k5_s42`、`ptv3_bk`、`scpp_k5_m5_elr_s7`、`scpp_k5_m5_s13`、`scpp_k5_m5_s7`
+- **unevaluated**（有权重但从未评估，8）：`gated_s7`、`sc200_k1_BASEu_s42`、`sc200_k1_m5_elr_s7`、`sc200_k5_sym_65536_s42`、`sonata_small_stage1a`、`sym_lovasz_5split_s42`、`ptv3_bk`、`scpp_k5_m5_elr_s7`
 - **incomplete**（空壳或未跑完，2）：`sc200_k1_SW2_s42`、`scpp_entq_abs2`
 - **infra**（基础设施/备份，非实验，5）：`_guard_test`、`ontr_eval_bk`、`ontr_eval_ontr`、`ptv3_bk`、`spunet_bk`
 
@@ -25,7 +25,7 @@
 | `ptv3_bk` | scannet200 | — / ce | — | — | — | — | — | 1个/0.5G | infra |
 | `spunet_bk` | scannet200 | — / ce | — | — | — | 42 | OneCycleLR,AdamW | 2个/0.9G | infra |
 
-## 01 跨层读出主干与结构变体（27）
+## 01 跨层读出主干与结构变体（24）
 
 | 目录 | 数据集 | 结构/损失 | 伪标签 | 抖动 Base/Novel/HM | 确定性 Base/Novel/HM | 种子 | 口径备注 | 权重 | 状态 |
 |---|---|---|---|---|---|---|---|---|---|
@@ -34,14 +34,14 @@
 | `base_lovasz_s7` | scannet200 | base / lovasz | 离线 | 0.6754/0.3157/0.4303 | 0.6659/0.3111/0.4241 | 7 | 主干:model_best.pth | 7个/3.6G | done |
 | `base_s13` | scannet200 | base / ce | 离线 | 0.6685/0.2974/0.4116 | — | 13 | 主干:model_best.pth | 7个/3.6G | done |
 | `detach_sym_lovasz_s7` | scannet200 | sym/detach / lovasz | 离线 | 0.6547/0.2972/0.4089 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
-| `gated_sym_xl_s42` | scannet200 | sym_xl/gated / ce | 离线 | 0.6843/0.3093/0.4260 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
-| `gated_sym_xl_s7` | scannet200 | sym_xl/gated / ce | — | — | — | 7 | 主干:model_best.pth | 3个/1.6G | unevaluated |
+| `gated_s42` | scannet200 | gated / ce | 离线 | 0.6843/0.3093/0.4260 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
+| `gated_s7` | scannet200 | gated / ce | — | — | — | 7 | 主干:model_best.pth | 3个/1.6G | unevaluated |
 | `lnonly_s42` | scannet200 | lnonly / ce | 离线 | 0.6874/0.2803/0.3982 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `mlp_dec0_s13` | scannet200 | mlp_dec0 / ce | 离线 | 0.6898/0.2808/0.3991 | — | 13 | 主干:model_best.pth | 7个/3.6G | done |
 | `mlp_dec0_s42` | scannet200 | mlp_dec0 / ce | 离线 | 0.6788/0.2914/0.4078 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `mlp_dec0_s7` | scannet200 | mlp_dec0 / ce | 离线 | 0.6953/0.2932/0.4125 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
-| `ortho_sym_xl_s42` | scannet200 | sym_xl/ortho / ce | 离线 | 0.6813/0.3065/0.4228 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
-| `ortho_sym_xl_s7` | scannet200 | sym_xl/ortho / ce | 离线 | 0.6771/0.3067/0.4222 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
+| `ortho_s42` | scannet200 | ortho / ce | 离线 | 0.6813/0.3065/0.4228 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
+| `ortho_s7` | scannet200 | ortho / ce | 离线 | 0.6771/0.3067/0.4222 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
 | `rep3_lovasz_s13` | scannet200 | rep3 / lovasz | 离线 | 0.6900/0.3021/0.4202 | — | 13 | 主干:model_best.pth | 7个/3.2G | done |
 | `rep3_lovasz_s42` | scannet200 | rep3 / lovasz | 离线 | 0.6758/0.3239/0.4379 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `rep3_lovasz_s7` | scannet200 | rep3 / lovasz | 离线 | 0.6821/0.3078/0.4242 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
@@ -52,9 +52,6 @@
 | `sym_lovasz_s13` | scannet200 | sym / lovasz | 离线 | 0.6785/0.3233/0.4379 | 0.6752/0.3191/0.4334 | 13 | 主干:model_best.pth | 7个/3.6G | done |
 | `sym_lovasz_s42` | scannet200 | sym / lovasz | 离线 | 0.6867/0.3253/0.4414 | 0.6805/0.3207/0.4359 | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sym_lovasz_s7` | scannet200 | sym / lovasz | 离线 | 0.6812/0.3291/0.4438 | 0.6775/0.3237/0.4381 | 7 | 主干:model_best.pth | 7个/3.6G | done |
-| `sym_xl_s13` | scannet200 | sym_xl / ce | 离线 | 0.6844/0.3024/0.4194 | — | 13 | 主干:model_best.pth | 7个/3.6G | done |
-| `sym_xl_s42` | scannet200 | sym_xl / ce | 离线 | 0.6877/0.3083/0.4257 | — | 42 | PL:ps_ai_then_entropy,主干:model_best.pth | 7个/3.6G | done |
-| `sym_xl_s7` | scannet200 | sym_xl / ce | 离线 | 0.6775/0.3058/0.4214 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
 | `xl_s13` | scannet200 | xl / ce | 离线 | 0.6725/0.3044/0.4191 | — | 13 | 主干:model_best.pth | 7个/3.6G | done |
 
 ## 02 损失函数（2）
@@ -64,7 +61,7 @@
 | `base_la_s42` | scannet200 | base / la | 离线 | 0.6763/0.2725/0.3885 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sym_la_s42` | scannet200 | sym / la | 离线 | 0.6657/0.2980/0.4117 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 
-## 03 伪标签来源与 1-shot 口径（36）
+## 03 伪标签来源与 1-shot 口径（39）
 
 | 目录 | 数据集 | 结构/损失 | 伪标签 | 抖动 Base/Novel/HM | 确定性 Base/Novel/HM | 种子 | 口径备注 | 权重 | 状态 |
 |---|---|---|---|---|---|---|---|---|---|
@@ -80,7 +77,7 @@
 | `sc200_k1_XLu_s42` | scannet200 | — / ce | xlu/离线 | 0.6831/0.3100/0.4265 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_XLu_s7` | scannet200 | — / ce | xlu | — | — | 7 | 主干:model_best.pth | 7个/3.6G | failed |
 | `sc200_k1_XLu_s7_eval` | scannet200 | — / ce | xlu/离线 | 0.6717/0.3003/0.4150 | — | 60683218 | 续训:sc200_k1_XLu_s7,主干:model_best.pth | — | done |
-| `sc200_k1_base_s42` | scannet200 | — / ce | — | — | — | 42 | 主干:model_best.pth | 2个/1.0G | unevaluated |
+| `sc200_k1_base_s42` | scannet200 | — / ce | 离线 | 0.6738/0.2698/0.3853 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_m10_s42` | scannet200 | — / ce | 离线 | 0.6814/0.2774/0.3942 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_m11a_s42` | scannet200 | — / ce | 离线 | 0.6828/0.2802/0.3974 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_m1_nod0ln_g035_s42` | scannet200 | — / ce | 离线 | 0.6902/0.2973/0.4156 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
@@ -94,16 +91,19 @@
 | `sc200_k1_m5_psai_d2r10_s7` | scannet200 | — / ce | 在线 | 0.6680/0.2584/0.3727 | — | 7 | PL:psai_dec2_rank,主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_m5_psai_fullent10_s7` | scannet200 | — / ce | 在线 | 0.6764/0.2239/0.3364 | — | 7 | PL:ps_ai_then_entropy,主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_m5_psai_fullent30_pp_s7` | scannet200 | — / ce | 在线 | 0.6694/0.2942/0.4088 | — | 7 | PL:ps_ai_then_entropy,主干:model_best.pth | 7个/3.6G | done |
-| `sc200_k1_m5_s13` | scannet200 | — / ce | — | — | — | 13 | 主干:model_best.pth | 2个/1.0G | unevaluated |
+| `sc200_k1_m5_s13` | scannet200 | — / ce | 离线 | 0.6639/0.3032/0.4163 | — | 13 | 主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_m5_s42` | scannet200 | — / ce | 离线 | 0.6852/0.3022/0.4194 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
-| `sc200_k1_m5_s7` | scannet200 | — / ce | — | — | — | 7 | 主干:model_best.pth | 2个/1.0G | unevaluated |
+| `sc200_k1_m5_s7` | scannet200 | — / ce | 离线 | 0.6775/0.2852/0.4014 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_m8_s42` | scannet200 | — / ce | 离线 | 0.6863/0.3002/0.4177 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_m9_s42` | scannet200 | — / ce | 离线 | 0.6751/0.2990/0.4144 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
-| `sc200_k1_offline` | scannet200 | — / ce | offline/离线 | 0.6805/0.2500/0.3656 | — | 48573202 | 续训:sc200_k1_offline,主干:model_best.pth | 8个/4.1G | done |
+| `sc200_k1_offline` | scannet200 | — / ce | offline/离线 | 0.6805/0.2500/0.3656 | — | 3808952 | 主干:model_best.pth | 8个/4.1G | done |
 | `sc200_k1_offline_A` | scannet200 | — / ce | offline/离线 | 0.6872/0.2711/0.3889 | — | 2580662 | 续训:sc200_k1_offline_A,主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_offline_B` | scannet200 | — / ce | offline/离线 | 0.6917/0.2520/0.3695 | — | 55252509 | 续训:sc200_k1_offline_B,主干:model_best.pth | 7个/3.6G | done |
 | `sc200_k1_regis1` | scannet200 | — / ce | official/离线 | 0.6816/0.2880/0.4050 | — | 12900599 | 续训:sc200_k1_regis1,主干:model_best.pth | 1个/0.5G | done |
 | `sc200_k1_sym_gtproj_s7` | scannet200 | sym / ce | 在线 | 0.6212/0.2510/0.3575 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
+| `sc200_k1_sym_s13` | scannet200 | sym / ce | 离线 | 0.6844/0.3024/0.4194 | — | 13 | 主干:model_best.pth | 7个/3.6G | done |
+| `sc200_k1_sym_s42` | scannet200 | sym / ce | 离线 | 0.6877/0.3083/0.4257 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
+| `sc200_k1_sym_s7` | scannet200 | sym / ce | 离线 | 0.6775/0.3058/0.4214 | — | 7 | 主干:model_best.pth | 7个/3.6G | done |
 
 ## 04 ONTR 与冻结骨干（17）
 
@@ -160,20 +160,20 @@
 | `lcross_sym_k1_s42` | scannet200 | lcross / ce | 离线 | 0.6843/0.3061/0.4230 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `lcross_sym_k5_s42` | scannet200 | lcross / ce | 离线 | 0.6779/0.3152/0.4304 | — | 42 | 主干:model_best.pth | 1个/0.5G | done |
 | `sc200_k5_m5_m1vote_s7` | scannet200 | — / ce | 在线 | 0.6716/0.2948/0.4098 | — | 7 | PL:dual_eye_m1_vote,主干:model_best.pth | 1个/0.5G | done |
-| `sc200_k5_m5_s13` | scannet200 | — / ce | — | — | — | 13 | 主干:model_best.pth | 1个/0.5G | unevaluated |
-| `sc200_k5_m5_s42` | scannet200 | — / ce | — | — | — | 42 | 主干:model_best.pth | 1个/0.5G | unevaluated |
-| `sc200_k5_m5_s7` | scannet200 | — / ce | — | — | — | 7 | 主干:model_best.pth | 1个/0.5G | unevaluated |
-| `sym_k1_a090` | scannet200 | sym / ce | 离线 | 0.6972/0.2976/0.4171 | — | 34509238 | α=0.90,续训:sym_xl_s42,主干:model_best.pth | — | done |
+| `sc200_k5_m5_s13` | scannet200 | — / ce | 离线 | 0.6806/0.3152/0.4309 | — | 13 | 主干:model_best.pth | 1个/0.5G | done |
+| `sc200_k5_m5_s42` | scannet200 | — / ce | 离线 | 0.6711/0.3122/0.4262 | — | 42 | 主干:model_best.pth | 1个/0.5G | done |
+| `sc200_k5_m5_s7` | scannet200 | — / ce | 离线 | 0.6876/0.3222/0.4388 | — | 7 | 主干:model_best.pth | 1个/0.5G | done |
+| `sc200_k5_sym_65536_s42` | scannet200 | sym / ce | — | — | — | 42 | 主干:model_best.pth | 1个/0.5G | unevaluated |
+| `sym_k1_a090` | scannet200 | sym / ce | 离线 | 0.6972/0.2976/0.4171 | — | 34509238 | α=0.90,续训:sc200_k1_sym_s42,主干:model_best.pth | — | done |
 | `sym_k1_dec2_s42` | scannet200 | sym / ce | 离线 | 0.6856/0.3015/0.4188 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sym_k5_102400_s13` | scannet200 | sym / ce | 离线 | 0.6793/0.3224/0.4373 | — | 13 | 主干:model_best.pth | 1个/0.5G | done |
 | `sym_k5_102400_s42` | scannet200 | sym / ce | 离线 | 0.6843/0.3253/0.4410 | — | 42 | 主干:model_best.pth | 1个/0.5G | done |
 | `sym_k5_102400_s7` | scannet200 | sym / ce | 离线 | 0.6716/0.3258/0.4388 | — | 7 | 主干:model_best.pth | 1个/0.5G | done |
-| `sym_k5_a080` | scannet200 | sym / ce | 离线 | 0.6927/0.3032/0.4218 | — | 22515937 | α=0.80,续训:sym_xl_k5_s42,主干:model_best.pth | — | done |
-| `sym_k5_a090` | scannet200 | sym / ce | 离线 | 0.6834/0.3154/0.4316 | — | 21872749 | α=0.90,续训:sym_xl_k5_s42,主干:model_best.pth | — | done |
+| `sym_k5_a080` | scannet200 | sym / ce | 离线 | 0.6927/0.3032/0.4218 | — | 22515937 | α=0.80,续训:sc200_k5_sym_65536_s42,主干:model_best.pth | — | done |
+| `sym_k5_a090` | scannet200 | sym / ce | 离线 | 0.6834/0.3154/0.4316 | — | 21872749 | α=0.90,续训:sc200_k5_sym_65536_s42,主干:model_best.pth | — | done |
 | `sym_lcross01_k1_s42` | scannet200 | sym+lcross01 / ce | 离线 | 0.6848/0.3064/0.4234 | — | 42 | 主干:model_best.pth | 7个/3.6G | done |
 | `sym_lcross01_k5_102400_s42` | scannet200 | sym+lcross01 / ce | 离线 | 0.6853/0.3246/0.4406 | — | 42 | 主干:model_best.pth | 1个/0.5G | done |
 | `sym_lovasz_k5_102400_s42` | scannet200 | sym / lovasz | 离线 | 0.6835/0.3413/0.4553 | — | 42 | 主干:model_best.pth | 1个/0.5G | done |
-| `sym_xl_k5_s42` | scannet200 | sym_xl / ce | — | — | — | 42 | 主干:model_best.pth | 1个/0.5G | unevaluated |
 
 ## 08 ScanNet++（跨数据集验证）（103）
 
@@ -257,9 +257,9 @@
 | `scpp_k5_m5_psai_d2r10_s7` | scannetpp | — / ce | 在线 | 0.6258/0.2574/0.3647 | — | 7 | PL:psai_dec2_rank,主干:model_best.pth | 1个/0.5G | done |
 | `scpp_k5_m5_psai_fullent10_s7` | scannetpp | — / ce | 在线 | 0.6441/0.2755/0.3860 | — | 7 | PL:ps_ai_then_entropy,主干:model_best.pth | 1个/0.5G | done |
 | `scpp_k5_m5_psai_fullent30_pp_s7` | scannetpp | — / ce | 在线 | 0.6011/0.2584/0.3614 | — | 7 | PL:ps_ai_then_entropy,主干:model_best.pth | 1个/0.5G | done |
-| `scpp_k5_m5_s13` | scannetpp | — / ce | 在线 | — | — | 13 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | unevaluated |
+| `scpp_k5_m5_s13` | scannetpp | — / ce | 在线 | 0.6017/0.1916/0.2907 | — | 13 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
 | `scpp_k5_m5_s42` | scannetpp | — / ce | 在线 | 0.6236/0.2252/0.3309 | — | 42 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
-| `scpp_k5_m5_s7` | scannetpp | — / ce | 在线 | — | — | 7 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | unevaluated |
+| `scpp_k5_m5_s7` | scannetpp | — / ce | 在线 | 0.6258/0.2221/0.3278 | — | 7 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
 | `scpp_k5_sym_gtproj_s7` | scannetpp | sym / ce | 在线 | 0.3455/0.0000/0.0001 | — | 7 | PS0.60/AI0.95,主干:model_best.pth | 1个/0.5G | done |
 | `scpp_l1hybrid` | scannetpp | — / ce | 在线 | 0.6226/0.2227/0.3281 | — | 42 | PL:student_consensus,warm4,tau0.40,主干:model_best.pth | 1个/0.5G | done |
 | `scpp_l1pure` | scannetpp | — / ce | 在线 | 0.6176/0.2205/0.3250 | — | 42 | PL:student_consensus,warm4,tau0.40,主干:model_best.pth | 1个/0.5G | done |

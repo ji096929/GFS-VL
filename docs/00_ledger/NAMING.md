@@ -45,7 +45,7 @@
 
 **四个容易搞错的点：**
 
-1. **`sym` 本身已含 `xl`**。`sym_xl_s42` 和 `sym_lovasz_s42` 的差别只是损失（CE vs Lovász），不是结构。
+1. **`sym` 本身已含 `xl`**。`sc200_k1_sym_s42` 和 `sym_lovasz_s42` 的差别只是损失（CE vs Lovász），不是结构。
 2. **`rep3` 是假跨层**。它和 `sym` 层数、参数完全一样，但输入的 dec1/dec2 被替换成 dec0 的复制。它存在的唯一目的就是做这个消融。
 3. **`mlp_dec0` 参数量比 `sym` 还多**，但没有跨层信息。它排除了「增益只是来自更多参数」的解释。
 4. **`base` 不是「base 类专用」**，它是「没有任何跨层增强」的基线。
@@ -80,7 +80,7 @@
 | `offline_A` / `offline_B` | 旧版离线 PL 的 A/B 两套（`gen_ab.py`） | `SERVER_CACHE_INDEX.md` |
 | `regis1` | 官方 Model Zoo 权重（`epoch 20`, `optimizer.step 1999`） | `docs/_archive/ASSET_README.md` |
 
-**`a080/a090` 的额外事实**：这两个实验的 config 里 `weight` 指向 `sym_xl_k5_s42/model/regis1_model_last.pth`，`seed=22515937`，即**从 sym_xl_k5 权重续训 20 epoch**，不是从头训。
+**`a080/a090` 的额外事实**：这两个实验的 config 里 `weight` 指向 `sc200_k5_sym_65536_s42/model/regis1_model_last.pth`，`seed=22515937`，即**从那个 5-shot 权重续训 20 epoch**，不是从头训。
 
 ---
 
@@ -188,7 +188,7 @@ grep -c 'sparseunet32_636.pth to GPU' exp/<dataset>/<run>/train.log
 | `base_s7` | `sc200_k1_BASEu_s7` | 同上 |
 | `xl_s42` | `sc200_k1_XLu_s42` | 早期 xl 实验 |
 | `xl_s7` | `sc200_k1_XLu_s7` | 崩溃，无结果 |
-| `sym_xl_s42/s7/s13` | 同名 | CE 口径的对称跨层 |
+| `sc200_k1_sym_s42/s7/s13` | 同名 | CE 口径的对称跨层（2026-11-27 由 `sym_xl_*` 改名） |
 | `sym_lovasz_s42/s7/s13` | 同名 | **当前主方法的三个 seed** |
 
 来源：`docs/_archive/ASSET_README.md`（2026-11-20 冻结）
