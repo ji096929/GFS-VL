@@ -1,3 +1,16 @@
+> # ⚠️ 这是实验分支，不是官方仓库
+>
+> 官方代码：[ZhaochongAn/GFS-VL](https://github.com/ZhaochongAn/GFS-VL)（CVPR 2025）
+>
+> **想看我们的实验结论，按这个顺序读：**
+> 1. [`docs/00_ledger/OVERVIEW.md`](docs/00_ledger/OVERVIEW.md) — **项目总览、时间线、定稿的 12 格**（先看这个）
+> 2. [`docs/00_ledger/AUDIT_2026-11-27.md`](docs/00_ledger/AUDIT_2026-11-27.md) — 哪些数字作废、口径怎么锁
+> 3. [`docs/00_ledger/LEDGER.md`](docs/00_ledger/LEDGER.md) — 228 个实验的机读台账
+> 4. [`docs/00_ledger/NAMING.md`](docs/00_ledger/NAMING.md) — 目录名里每个词的含义
+>
+> **一句话结论**：跨层残差双头（`sym`）在 ScanNet200 1-shot **+2.17**、5-shot **+1.11**，
+> ScanNet++ 5-shot **+2.12**；ScanNet++ 1-shot 是 **−0.71**，此时改用零初始化的 `M5` 可以拿到 **+0.29**。
+
 <p align="center">
   <h1 align="center">Generalized Few-shot 3D Point Cloud Segmentation with Vision-Language Model</h1>
   <p align="center">
