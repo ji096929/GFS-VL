@@ -33,7 +33,7 @@
 | （无）/ `base` | — | 基线。`novel_seg_head = Linear(64→45, bias=False)`，只吃 dec0 |
 | `xl` | `cross_layers=(1,2)` `cross_dims=(64,128)` `cross_dim=64` | 跨层读出。novel head 吃 `[LN(dec0), proj(dec1), proj(dec2)]` = **192d** |
 | `sym` | `xl` + `base_cross=True` | **对称**。Base 头额外加零初始化残差 `Linear(128→12, bias=False)`，吃 `proj1/proj2` |
-| `sym_xl` | 与 `sym` **完全相同** | 历史命名冗余。`base_cross` 断言要求 `cross_layers` 非空，所以「sym 不带 xl」不存在 |
+| `sym_xl` | **已废弃（2026-11-27）** | 与 `sym` 定义完全相同，纯命名冗余。当天已把 8 个目录全部改名（`sc200_k1_sym_*` / `sc200_gated_*` / `sc200_ortho_*` / `sc200_k5_sym_65536_s42`），**全库已无此名**。以后统一用 `sym` |
 | `lcross` | `sym` + `lam_cross=0.3` | 加 L_cross 损失，λ=0.3 |
 | `lcross01` | `sym` + `lam_cross=0.1` | 加 L_cross 损失，λ=0.1 |
 | `ortho` | `sym` + `decorr_weight=0.1` | 加去相关正则（orthogonality），权重 0.1 |
