@@ -735,6 +735,8 @@ class GFS_VL_Trainer(Trainer):
                 _pre_logits = _pre_out.pop("seg_logits")
                 _pre_decorr = _pre_out.pop("decorr_loss", None)
                 _pre_cross = _pre_out.pop("cross_logits", None)
+                _pre_con0 = _pre_out.pop("con_dec0", None)
+                _pre_con2 = _pre_out.pop("con_dec2", None)
             new_target = self.target_calibrate(
                 input_dict, seg_logits=_pre_logits.detach())
         else:
@@ -771,11 +773,15 @@ class GFS_VL_Trainer(Trainer):
                 seg_logits = _pre_logits
                 decorr_loss = _pre_decorr
                 cross_logits = _pre_cross
+                con_dec0 = _pre_con0
+                con_dec2 = _pre_con2
             else:
                 output_dict = self.model(input_dict)
                 seg_logits = output_dict.pop("seg_logits")
                 decorr_loss = output_dict.pop("decorr_loss", None)
                 cross_logits = output_dict.pop("cross_logits", None)
+                con_dec0 = output_dict.pop("con_dec0", None)
+                con_dec2 = output_dict.pop("con_dec2", None)
             criteria = (
                 self.model.module.criteria
                 if comm.get_world_size() > 1
@@ -830,13 +836,104 @@ class GFS_VL_Trainer(Trainer):
                                     % (_gce_q, int(valid.sum().item()), n_gt, n_pl, ce_gt, gce_pl, ce_pl_ref)
                                 )
                             return torch.where(is_pl_v, gce_v, ce_v).mean()
+                    if bool(getattr(self.cfg, "prior_preserve_novel", False)):
+                        with torch.cuda.amp.autocast(enabled=False):
+                            logits_f32 = logits.float()
+                            valid = new_target != -1
+                            if not valid.any():
+                                return logits_f32.sum() * 0.0
+                            _nb = int(self.cfg.data.num_bases)
+                            _nv_mask = new_target >= _nb
+                            _nv_post = float(_nv_mask.sum().item())
+                            _nv_pre = float(getattr(self, "_last_nv_pre_cnt", _nv_post))
+                            _w_nv = min(_nv_pre / max(_nv_post, 1.0), 10.0) if _nv_post > 0 else 1.0
+                            _pt_w = torch.where(
+                                _nv_mask,
+                                torch.full_like(new_target, _w_nv, dtype=torch.float32),
+                                torch.ones_like(new_target, dtype=torch.float32),
+                            )
+                            _ce = torch.nn.functional.cross_entropy(
+                                logits_f32, new_target.long(), reduction="none", ignore_index=-1
+                            )
+                            if not getattr(self, "_ppn_logged", False) and comm.is_main_process():
+                                self._ppn_logged = True
+                                _n_base = int(((new_target >= 0) & (new_target < _nb)).sum().item())
+                                self.logger.info(
+                                    "[PriorPreserve] base=%d nv_pre=%d nv_post=%d w_nv=%.3f"
+                                    % (_n_base, int(_nv_pre), int(_nv_post), _w_nv)
+                                )
+                            return (_ce * _pt_w)[valid].sum() / (_pt_w[valid].sum() + 1e-6)
+                    if bool(getattr(self.cfg, "soft_ent_pl_weight", False)) and getattr(self, "_last_soft_pl_w", None) is not None:
+                        with torch.cuda.amp.autocast(enabled=False):
+                            logits_f32 = logits.float()
+                            valid = new_target != -1
+                            if not valid.any():
+                                return logits_f32.sum() * 0.0
+                            _sw = self._last_soft_pl_w
+                            _ce = torch.nn.functional.cross_entropy(
+                                logits_f32, new_target.long(), reduction="none", ignore_index=-1
+                            )
+                            if (
+                                comm.is_main_process()
+                                and self.comm_info.get("iter", 1) == 0
+                                and (self.epoch + 1 in (1, 5, 10, 15, 20))
+                                and getattr(self, "_se_last_ep", -1) != self.epoch
+                            ):
+                                self._se_last_ep = self.epoch
+                                _is_gt = (orig_gt_seg != -1) & valid
+                                _is_pl = (orig_gt_seg == -1) & valid
+                                if _is_pl.any():
+                                    _wp = _sw[_is_pl]
+                                    _q10, _q90 = torch.quantile(_wp, torch.tensor([0.1, 0.9], device=_wp.device)).tolist()
+                                    self.logger.info(
+                                        "[SoftEntPL ep=%d] n_gt=%d n_pl=%d | w_pl mean=%.3f std=%.3f p10=%.3f p90=%.3f min=%.3f max=%.3f"
+                                        % (
+                                            self.epoch + 1,
+                                            int(_is_gt.sum().item()),
+                                            int(_is_pl.sum().item()),
+                                            float(_wp.mean()),
+                                            float(_wp.std()),
+                                            _q10,
+                                            _q90,
+                                            float(_wp.min()),
+                                            float(_wp.max()),
+                                        )
+                                    )
+                            return (_ce * _sw)[valid].sum() / (_sw[valid].sum() + 1e-6)
                     return criteria(logits, new_target)
                 ce = torch.nn.functional.cross_entropy(
                     logits, new_target, reduction="none", ignore_index=-1)
                 valid = new_target != -1
                 return (ce * _pw)[valid].sum() / (_pw[valid].sum() + 1e-6)
 
-            loss = _weighted_ce(seg_logits)
+            _gt_anchor_proj = bool(getattr(self.cfg, "gt_anchor_proj", False))
+            if _gt_anchor_proj:
+                with torch.cuda.amp.autocast(enabled=False):
+                    def _split_gt_pl_ce(logits):
+                        logits_f32 = logits.float()
+                        valid = new_target != -1
+                        n_valid = valid.sum().float().clamp(min=1.0)
+                        ce = torch.nn.functional.cross_entropy(
+                            logits_f32, new_target.long(), reduction="none", ignore_index=-1
+                        )
+                        is_gt = (orig_gt_seg != -1) & valid
+                        is_pl = (orig_gt_seg == -1) & valid
+                        l_gt = (ce * is_gt.float()).sum() / n_valid
+                        l_pl = (ce * is_pl.float()).sum() / n_valid
+                        return l_gt, l_pl, int(is_gt.sum().item()), int(is_pl.sum().item())
+
+                    loss_gt, loss_pl, _gp_ngt, _gp_npl = _split_gt_pl_ce(seg_logits)
+                    if cross_logits is not None:
+                        _lam = float(getattr(self.cfg, "lam_cross", 0.3))
+                        _lg_c, _lp_c, _, _ = _split_gt_pl_ce(cross_logits)
+                        loss_gt = loss_gt + _lam * _lg_c
+                        loss_pl = loss_pl + _lam * _lp_c
+                    if decorr_loss is not None:
+                        loss_gt = loss_gt + decorr_loss.float()
+                    loss = (loss_gt + loss_pl).detach()
+                output_dict["loss"] = loss
+            else:
+                loss = _weighted_ce(seg_logits)
             if ema_logits is not None:
                 with torch.cuda.amp.autocast(enabled=False):
                     _valid = new_target != -1
@@ -878,16 +975,147 @@ class GFS_VL_Trainer(Trainer):
                     self._lv_logged = True
                     self.logger.info("[Lovasz] ce=%.4f lovasz=%.4f" % (float(loss), float(_lo)))
                 loss = loss + _lo
-            if decorr_loss is not None:
+            if not _gt_anchor_proj and decorr_loss is not None:
                 loss = loss + decorr_loss
-            if cross_logits is not None:
+            if not _gt_anchor_proj and cross_logits is not None:
                 _lam = float(getattr(self.cfg, "lam_cross", 0.3))
                 loss = loss + _lam * _weighted_ce(cross_logits)
+            _cc_lam = float(getattr(self.cfg, "clean_con_lam", 0.0) or 0.0)
+            if not _gt_anchor_proj and _cc_lam > 0.0 and con_dec0 is not None and con_dec2 is not None:
+                _ce_ref = float(loss.detach())
+                _cc_loss, _cc_st = self._clean_proto_con_loss(
+                    {"dec0": con_dec0, "dec2": con_dec2}, orig_gt_seg
+                )
+                loss = loss + _cc_lam * _cc_loss
+                if (
+                    comm.is_main_process()
+                    and self.comm_info.get("iter", 1) == 0
+                    and (self.epoch + 1 in (1, 2, 5, 10, 15, 20))
+                ):
+                    self.logger.info(
+                        "[CleanCon ep=%d] ce=%.4f l_d0=%.4f l_d2=%.4f (lam=%.2f tau=%.2f) | active=%d/%d | base_c=%.4f nv_c=%.4f | n_b=%d n_nv=%d"
+                        % (
+                            self.epoch + 1,
+                            _ce_ref,
+                            _cc_st["l_dec0"],
+                            _cc_st["l_dec2"],
+                            _cc_lam,
+                            _cc_st["tau"],
+                            _cc_st["active"],
+                            _cc_st["nc"],
+                            _cc_st["base_c"],
+                            _cc_st["nv_c"],
+                            _cc_st["n_b"],
+                            _cc_st["n_nv"],
+                        )
+                    )
             output_dict["loss"] = loss
 
         self.optimizer.zero_grad()
+        if _gt_anchor_proj:
+            raw_model = self.model.module if comm.get_world_size() > 1 else self.model
+            named_params = [(n, p) for n, p in raw_model.named_parameters() if p.requires_grad]
+            scaled_pl = self.scaler.scale(loss_pl) if self.cfg.enable_amp else loss_pl
+            g_pl_list = list(
+                torch.autograd.grad(
+                    scaled_pl,
+                    [p for _, p in named_params],
+                    retain_graph=True,
+                    allow_unused=True,
+                )
+            )
+            if comm.get_world_size() > 1:
+                non_none_idx = [i for i, g in enumerate(g_pl_list) if g is not None]
+                if non_none_idx:
+                    flat_pl = torch.cat(
+                        [g_pl_list[i].detach().float().reshape(-1) for i in non_none_idx]
+                    )
+                    dist.all_reduce(flat_pl, op=dist.ReduceOp.SUM)
+                    flat_pl.div_(float(comm.get_world_size()))
+                    off = 0
+                    for i in non_none_idx:
+                        sz = g_pl_list[i].numel()
+                        g_pl_list[i] = flat_pl[off:off + sz].view_as(g_pl_list[i]).to(
+                            g_pl_list[i].dtype
+                        )
+                        off += sz
+            scaled_gt = self.scaler.scale(loss_gt) if self.cfg.enable_amp else loss_gt
+            scaled_gt.backward()
+
+            n_bk_conf = 0
+            n_bk_tot = 0
+            cos_sum = 0.0
+            base_hd_frac = 0.0
+            nv_hd_frac = 0.0
+            with torch.no_grad():
+                for (pname, p), g_pl in zip(named_params, g_pl_list):
+                    if g_pl is None:
+                        continue
+                    if p.grad is None:
+                        p.grad = g_pl.detach().to(p.dtype)
+                        continue
+                    gt_f = p.grad.detach().float()
+                    pl_f = g_pl.detach().float()
+                    if not (torch.isfinite(gt_f).all() and torch.isfinite(pl_f).all()):
+                        p.grad = (gt_f + pl_f).to(p.dtype)
+                        continue
+                    if pname in ("seg_head.weight", "novel_seg_head.weight"):
+                        gt_norm = gt_f.norm(dim=1, keepdim=True)
+                        u = gt_f / gt_norm.clamp(min=1e-12)
+                        dot = (pl_f * u).sum(dim=1, keepdim=True)
+                        conflict = (dot < 0.0) & (gt_norm > 1e-12)
+                        pl_proj = torch.where(conflict, pl_f - dot * u, pl_f)
+                        p.grad = (gt_f + pl_proj).to(p.dtype)
+                        frac = float(conflict.float().mean().item()) * 100.0
+                        if pname == "seg_head.weight":
+                            base_hd_frac = frac
+                        else:
+                            nv_hd_frac = frac
+                    elif pname == "seg_head.bias":
+                        conflict = (gt_f * pl_f) < 0.0
+                        pl_proj = torch.where(conflict, torch.zeros_like(pl_f), pl_f)
+                        p.grad = (gt_f + pl_proj).to(p.dtype)
+                    else:
+                        gt_norm = gt_f.norm()
+                        pl_norm = pl_f.norm()
+                        if gt_norm > 1e-12 and pl_norm > 1e-12:
+                            u = gt_f / gt_norm
+                            dot = torch.dot(pl_f.reshape(-1), u.reshape(-1))
+                            cos_val = float((dot / pl_norm).item())
+                            if dot < 0.0:
+                                pl_f = pl_f - dot * u
+                                n_bk_conf += 1
+                            n_bk_tot += 1
+                            cos_sum += cos_val
+                        p.grad = (gt_f + pl_f).to(p.dtype)
+
+            if (
+                comm.is_main_process()
+                and self.comm_info.get("iter", 1) == 0
+                and (self.epoch + 1 in (1, 5, 10, 15, 20))
+            ):
+                bk_pct = 100.0 * n_bk_conf / max(n_bk_tot, 1)
+                mean_cos = cos_sum / max(n_bk_tot, 1)
+                self.logger.info(
+                    "[GTProj ep=%d] l_gt=%.4f l_pl=%.4f n_gt=%d n_pl=%d | bk_conf=%d/%d(%.1f%%) mean_cos=%.3f | base_hd=%.1f%% nv_hd=%.1f%%"
+                    % (
+                        self.epoch + 1,
+                        float(loss_gt.detach()),
+                        float(loss_pl.detach()),
+                        _gp_ngt,
+                        _gp_npl,
+                        n_bk_conf,
+                        n_bk_tot,
+                        bk_pct,
+                        mean_cos,
+                        base_hd_frac,
+                        nv_hd_frac,
+                    )
+                )
+
         if self.cfg.enable_amp:
-            self.scaler.scale(loss).backward()
+            if not _gt_anchor_proj:
+                self.scaler.scale(loss).backward()
             _gn_probe(self)
             self.scaler.step(self.optimizer)
             # Adjust the scheduler if loss scaling factor remains unchanged
@@ -897,7 +1125,8 @@ class GFS_VL_Trainer(Trainer):
                 self.scheduler.step()
             self._update_elr_ema()
         else:
-            loss.backward()
+            if not _gt_anchor_proj:
+                loss.backward()
             _gn_probe(self)
             self.optimizer.step()
             self.scheduler.step()
@@ -906,6 +1135,102 @@ class GFS_VL_Trainer(Trainer):
         if self.cfg.empty_cache:
             torch.cuda.empty_cache()
         self.comm_info["model_output_dict"] = output_dict
+
+    def _clean_proto_con_loss(self, feat_dict, orig_gt_seg):
+        tau = float(getattr(self.cfg, "clean_con_tau", 0.2))
+        ema = float(getattr(self.cfg, "clean_con_ema", 0.99))
+        nc = int(self.cfg.data.num_base_novels)
+        nb = int(self.cfg.data.num_bases)
+        reg_tag = getattr(self, "regis_str", None)
+        if getattr(self, "_cc_regis_tag", None) != reg_tag or not hasattr(self, "_cc_bank"):
+            self._cc_regis_tag = reg_tag
+            self._cc_bank = {}
+            self._cc_seen = {}
+
+        gt_mask = (orig_gt_seg >= 0) & (orig_gt_seg < nc)
+        has_gt = bool(gt_mask.any())
+        y_gt = orig_gt_seg[gt_mask].long() if has_gt else None
+        n_b = int(((orig_gt_seg >= 0) & (orig_gt_seg < nb)).sum().item())
+        n_nv = int(((orig_gt_seg >= nb) & (orig_gt_seg < nc)).sum().item())
+
+        losses = {}
+        base_cs = []
+        nv_cs = []
+        active_cnt = 0
+        with torch.cuda.amp.autocast(enabled=False):
+            for tag, feat in feat_dict.items():
+                d_dim = int(feat.shape[-1])
+                dev = feat.device
+                if tag not in self._cc_bank:
+                    self._cc_bank[tag] = torch.zeros(nc, d_dim, dtype=torch.float32, device=dev)
+                    self._cc_seen[tag] = torch.zeros(nc, dtype=torch.bool, device=dev)
+                bank = self._cc_bank[tag]
+                seen = self._cc_seen[tag]
+
+                if has_gt:
+                    f_gt = torch.nn.functional.normalize(feat[gt_mask].float(), dim=-1, eps=1e-6)
+                else:
+                    f_gt = feat[:0].float()
+
+                with torch.no_grad():
+                    cls_sum = torch.zeros(nc, d_dim, dtype=torch.float32, device=dev)
+                    cls_cnt = torch.zeros(nc, dtype=torch.float32, device=dev)
+                    if has_gt:
+                        cls_sum.index_add_(0, y_gt, f_gt.detach())
+                        cls_cnt.index_add_(0, y_gt, torch.ones(y_gt.shape[0], dtype=torch.float32, device=dev))
+                    if comm.get_world_size() > 1:
+                        dist.all_reduce(cls_sum, op=dist.ReduceOp.SUM)
+                        dist.all_reduce(cls_cnt, op=dist.ReduceOp.SUM)
+                    pres = cls_cnt > 0
+                    if pres.any():
+                        cur_p = torch.nn.functional.normalize(
+                            cls_sum[pres] / cls_cnt[pres].unsqueeze(1), dim=-1, eps=1e-6
+                        )
+                        new_m = pres & (~seen)
+                        old_m = pres & seen
+                        if new_m.any():
+                            bank[new_m] = cur_p[new_m[pres]]
+                            seen[new_m] = True
+                        if old_m.any():
+                            upd = ema * bank[old_m] + (1.0 - ema) * cur_p[old_m[pres]]
+                            bank[old_m] = torch.nn.functional.normalize(upd, dim=-1, eps=1e-6)
+
+                active_cnt = int(seen.sum().item())
+                if active_cnt < 2 or not has_gt:
+                    losses[tag] = feat.sum() * 0.0
+                    continue
+
+                sim = torch.matmul(f_gt, bank.detach().t()) / tau
+                sim = sim.masked_fill(~seen.unsqueeze(0), -1e4)
+                ce_pt = torch.nn.functional.cross_entropy(sim, y_gt, reduction="none")
+                loss_sum = torch.zeros(nc, dtype=torch.float32, device=dev)
+                pt_cnt = torch.zeros(nc, dtype=torch.float32, device=dev)
+                loss_sum.index_add_(0, y_gt, ce_pt)
+                pt_cnt.index_add_(0, y_gt, torch.ones_like(ce_pt))
+                loc_pres = pt_cnt > 0
+                cls_mean = loss_sum[loc_pres] / pt_cnt[loc_pres]
+                losses[tag] = cls_mean.mean()
+
+                b_m = loc_pres[:nb]
+                nv_m = loc_pres[nb:]
+                if b_m.any():
+                    base_cs.append(float((loss_sum[:nb][b_m] / pt_cnt[:nb][b_m]).mean().item()))
+                if nv_m.any():
+                    nv_cs.append(float((loss_sum[nb:][nv_m] / pt_cnt[nb:][nv_m]).mean().item()))
+
+        total = 0.5 * (losses["dec0"] + losses["dec2"])
+        stat = {
+            "l_dec0": float(losses["dec0"].detach()),
+            "l_dec2": float(losses["dec2"].detach()),
+            "tau": tau,
+            "active": active_cnt,
+            "nc": nc,
+            "base_c": sum(base_cs) / max(len(base_cs), 1),
+            "nv_c": sum(nv_cs) / max(len(nv_cs), 1),
+            "n_b": n_b,
+            "n_nv": n_nv,
+        }
+        return total, stat
 
     def _compute_text_margin(self, proto, class_id):
         """margin = cos(proto, text_self) - max_{b in base} cos(proto, text_b).
@@ -1160,6 +1485,11 @@ class GFS_VL_Trainer(Trainer):
         prediction = torch.cat(new_predictions, dim=0)
 
         # ---- 1C-c: 在 PS+AI 之上再叠按类熵分位过滤（UGA 的配方）----
+        if bool(getattr(self.cfg, "prior_preserve_novel", False)):
+            _nb_pp = int(self.cfg.data.num_bases)
+            _pre_t = label.clone()
+            _pre_t[bg_label_mask] = prediction[bg_label_mask]
+            self._last_nv_pre_cnt = float((_pre_t >= _nb_pp).sum().item())
         if getattr(self.cfg, "pl_mode", "ps_ai") == "ps_ai_then_entropy":
             prediction = self._entropy_prune(
                 prediction, ret_dict, input_dict, bg_label_mask, offset)
@@ -1168,6 +1498,29 @@ class GFS_VL_Trainer(Trainer):
 
         label_one_hot = label.clone()
         label_one_hot[bg_label_mask] = prediction[bg_label_mask]
+
+        if bool(getattr(self.cfg, "soft_ent_pl_weight", False)):
+            with torch.no_grad(), torch.cuda.amp.autocast(enabled=False):
+                _se_t = float(getattr(self.cfg, "soft_ent_temp", 10.0))
+                _W_se = torch.nn.functional.normalize(
+                    self.VLM_3D.task_head.cls_head.weight.detach().float(), dim=-1
+                )
+                _f_se = torch.nn.functional.normalize(
+                    ret_dict["all_feats"].detach().float(), dim=-1
+                )
+                _p_se = torch.softmax((_f_se @ _W_se.t()) * _se_t, dim=-1)
+                _lnK_se = float(np.log(max(int(_W_se.shape[0]), 2)))
+                _cert = (1.0 - (-(_p_se * (_p_se + 1e-8).log()).sum(dim=-1) / _lnK_se)).clamp(min=1e-4)
+                _pt_w = torch.ones(
+                    label_one_hot.shape[0], dtype=torch.float32, device=label_one_hot.device
+                )
+                _pl_m = bg_label_mask & (label_one_hot != -1)
+                if _pl_m.any():
+                    _c_pl = _cert[_pl_m]
+                    _w_pl = (_c_pl / _c_pl.mean().clamp(min=1e-6)).clamp(min=0.05, max=3.0)
+                    _w_pl = _w_pl / _w_pl.mean().clamp(min=1e-6)
+                    _pt_w[_pl_m] = _w_pl
+                self._last_soft_pl_w = _pt_w
 
         return label_one_hot
 
@@ -2069,13 +2422,16 @@ class GFS_VL_Trainer(Trainer):
         if feats is None:
             return prediction
         W = self.VLM_3D.task_head.cls_head.weight
+        W_n = torch.nn.functional.normalize(W.float(), dim=-1)
         cos_logits = torch.nn.functional.normalize(
-            feats.float(), dim=-1) @ W.t()
+            feats.float(), dim=-1) @ W_n.t()
         nb = int(self.cfg.data.num_bases)
         rho = float(getattr(self.cfg, "entropy_keep_rho", 0.1))
+        temp = float(getattr(self.cfg, "entropy_temp", 1.0))
+        full_cls = bool(getattr(self.cfg, "entropy_full_cls", False))
 
-        cos_nv = cos_logits[:, nb:]
-        p = torch.softmax(cos_nv, dim=-1)
+        _logits_ent = (cos_logits if full_cls else cos_logits[:, nb:]) * temp
+        p = torch.softmax(_logits_ent, dim=-1)
         ent = -(p * (p + 1e-8).log()).sum(-1)
 
         out = prediction.clone()

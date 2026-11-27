@@ -135,6 +135,8 @@ class RegisTrainSegmentor(nn.Module):
         decorr_weight=0.0,
         freeze_backbone=False,
         freeze_enc=False,
+        return_con_feats=False,
+        con_proj_dim=0,
     ):
         super().__init__()
         self.cross_layers = tuple(cross_layers)
@@ -281,6 +283,21 @@ class RegisTrainSegmentor(nn.Module):
 
         # frozen-backbone 模式：主干完全冻结，只训读出与分类头
         self.freeze_backbone = bool(freeze_backbone)
+        self.return_con_feats = bool(return_con_feats)
+        self.con_proj_dim = int(con_proj_dim)
+        if self.return_con_feats and self.con_proj_dim > 0:
+            self.con_proj0 = nn.Sequential(
+                nn.Linear(backbone_out_channels, backbone_out_channels),
+                nn.GELU(),
+                nn.Linear(backbone_out_channels, self.con_proj_dim),
+            )
+            if 2 in self.cross_layers:
+                _c2 = int(cross_dims[self.cross_layers.index(2)])
+                self.con_proj2 = nn.Sequential(
+                    nn.Linear(_c2, _c2),
+                    nn.GELU(),
+                    nn.Linear(_c2, self.con_proj_dim),
+                )
         if self.freeze_backbone:
             for _p in self.backbone.parameters():
                 _p.requires_grad = False
@@ -400,6 +417,8 @@ class RegisTrainSegmentor(nn.Module):
 
     def forward(self, input_dict):
         feat_fused = None
+        con_dec0 = None
+        con_dec2 = None
         try:
             point = Point(input_dict)
             point = self.backbone(point)
@@ -510,6 +529,15 @@ class RegisTrainSegmentor(nn.Module):
             else:
                 novel_seg_logits = self.novel_seg_head(feat)
             seg_logits = torch.cat([base_seg_logits, novel_seg_logits], dim=1)
+            if self.training and self.return_con_feats:
+                if self.con_proj_dim > 0:
+                    con_dec0 = self.con_proj0(feat.float())
+                    if 2 in self.cross_layers:
+                        con_dec2 = self.con_proj2(self._to_full(2).float())
+                else:
+                    con_dec0 = feat
+                    if 2 in self.cross_layers:
+                        con_dec2 = self._to_full(2)
         finally:
             # 只读诊断：仅在显式开启 GFS_CAPTURE_LAYERS=1 时，把 dec0/dec1/dec2
             # 的全分辨率特征存到 _cr_last（供 eRank / 线性探针读取）。
@@ -533,6 +561,10 @@ class RegisTrainSegmentor(nn.Module):
                 out["decorr_loss"] = decorr_loss
             if cross_logits is not None:
                 out["cross_logits"] = cross_logits
+            if con_dec0 is not None:
+                out["con_dec0"] = con_dec0
+            if con_dec2 is not None:
+                out["con_dec2"] = con_dec2
             return out
         # eval
         elif "segment" in input_dict.keys():
