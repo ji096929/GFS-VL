@@ -27,3 +27,6 @@ exp/
 # 本地备份文件（补丁前的快照，不进版本库）
 *.bak_*
 *.bak
+
+# Windows 设备名残留（Git Bash 下 2>/dev/null 会创建同名文件）
+NUL
